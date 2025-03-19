@@ -14,42 +14,24 @@ Or you can use the NuGet Package Manager in Visual Studio to search for and inst
 
 ## Usage
 
-See the [Sample](Sample/Sample.cs) project for a complete example.
+See the [Sample](Sample/Sample.cs) project for a complete example including Async overloads.
 
-### Synchronous Invocation
+### Basic Example
 
 ```csharp
+// Initialize an instance on the owning thread
 var invoker = new Invoker();
+
+// Queue a task from a different thread, which blocks until the delegate has been executed via DoInvokes() on the owning thread
 invoker.Invoke(() => Console.WriteLine("Hello, World!"));
 
-// Blocks until the delegate has been executed via DoInvokes() on the owning thread
-```
-
-### Asynchronous Invocation
-
-```csharp
-var invoker = new Invoker();
-await invoker.InvokeAsync(() => Console.WriteLine("Hello, World!"));
-
-// Await the task to ensure the delegate has been executed via DoInvokes() on the owning thread
-// Or store the task and await it later
-```
-
-### Synchronous Invocation with Return Value
-
-```csharp
-var invoker = new Invoker();
-var result = invoker.Invoke(() => "Hello, World!");
-```
-
-### Consuming Queued Tasks
-
-```csharp
-var invoker = new Invoker();
-
-// Queue tasks from other threads
-
+// Call DoInvokes() on the owning thread to execute queued tasks
 invoker.DoInvokes();
+
+// NOTE: If you queue from the owning thread the delegate will be executed immediately, bypassing DoInvokes()
+
+// Delegates with return values are supported
+string result = invoker.Invoke(() => "Hello, World!");
 ```
 
 ## License
