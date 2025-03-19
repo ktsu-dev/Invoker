@@ -14,47 +14,42 @@ Or you can use the NuGet Package Manager in Visual Studio to search for and inst
 
 ## Usage
 
+See the [Sample](Sample/Sample.cs) project for a complete example.
+
 ### Synchronous Invocation
 
 ```csharp
-using ktsu.Invoker;
+var invoker = new Invoker();
+invoker.Invoke(() => Console.WriteLine("Hello, World!"));
 
-
+// Blocks until the delegate has been executed via DoInvokes() on the owning thread
 ```
 
 ### Asynchronous Invocation
 
 ```csharp
-using ktsu.Invoker;
+var invoker = new Invoker();
+await invoker.InvokeAsync(() => Console.WriteLine("Hello, World!"));
 
-var invoker = new Invoker(); await invoker.InvokeAsync(() => Console.WriteLine("Hello, World!"));
+// Await the task to ensure the delegate has been executed via DoInvokes() on the owning thread
+// Or store the task and await it later
 ```
 
-
-
-
-### Synchronous Function Invocation with Return Value
+### Synchronous Invocation with Return Value
 
 ```csharp
-using ktsu.Invoker;
-
-var invoker = new Invoker(); var result = invoker.Invoke(() => "Hello, World!");
+var invoker = new Invoker();
+var result = invoker.Invoke(() => "Hello, World!");
 ```
 
-### Asynchronous Function Invocation with Return Value
-```csharp
-using ktsu.Invoker;
-
-var invoker = new Invoker(); var result = await invoker.InvokeAsync(() => "Hello, World!");
-```
-
-
-### Executing All Queued Tasks
+### Consuming Queued Tasks
 
 ```csharp
-using ktsu.Invoker;
+var invoker = new Invoker();
 
-var invoker = new Invoker(); invoker.Invoke(() => Console.WriteLine("Hello, World!"));
+// Queue tasks from other threads
+
+invoker.DoInvokes();
 ```
 
 ## License
