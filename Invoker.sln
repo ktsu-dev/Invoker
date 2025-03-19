@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34316.72
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Invoker", "Invoker\Invoker.csproj", "{C0C477B1-8C6A-7715-A025-C0E0B48802D1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sample", "Sample\Sample.csproj", "{5A7F8005-C165-6259-8009-1115B9A95056}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Invoker.Test", "Invoker.Test\Invoker.Test.csproj", "{97DD3E20-FCE6-19CC-3578-8172883F1E02}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C0C477B1-8C6A-7715-A025-C0E0B48802D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C0C477B1-8C6A-7715-A025-C0E0B48802D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C0C477B1-8C6A-7715-A025-C0E0B48802D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C0C477B1-8C6A-7715-A025-C0E0B48802D1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5A7F8005-C165-6259-8009-1115B9A95056}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5A7F8005-C165-6259-8009-1115B9A95056}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5A7F8005-C165-6259-8009-1115B9A95056}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5A7F8005-C165-6259-8009-1115B9A95056}.Release|Any CPU.Build.0 = Release|Any CPU
+		{97DD3E20-FCE6-19CC-3578-8172883F1E02}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{97DD3E20-FCE6-19CC-3578-8172883F1E02}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{97DD3E20-FCE6-19CC-3578-8172883F1E02}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{97DD3E20-FCE6-19CC-3578-8172883F1E02}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8E668606-2CA0-43FA-9D0C-2A7045707F40}
+	EndGlobalSection
+EndGlobal

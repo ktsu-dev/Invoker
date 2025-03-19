@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <None Remove="C:\dev\ktsu-dev\Invoker\LICENSE.md" />
+  </ItemGroup>
+</Project>
