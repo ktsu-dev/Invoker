@@ -92,9 +92,18 @@ public class InvokerTests
 	{
 		var invoker = new Invoker();
 		bool invoked1 = false, invoked2 = false;
-		_ = invoker.InvokeAsync(() => invoked1 = true);
-		_ = invoker.InvokeAsync(() => invoked2 = true);
+
+		Task.Run(() =>
+		{
+			_ = invoker.InvokeAsync(() => invoked1 = true);
+			_ = invoker.InvokeAsync(() => invoked2 = true);
+		}).Wait();
+
+		Assert.IsFalse(invoked1 && invoked2, "Tasks should not be executed yet");
+		Assert.AreEqual(2, invoker.TaskQueue.Count, "Tasks should be queued.");
+
 		invoker.DoInvokes();
+
 		Assert.IsTrue(invoked1 && invoked2, "All queued tasks should be executed on same thread.");
 	}
 }

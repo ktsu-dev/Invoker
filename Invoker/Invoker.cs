@@ -15,7 +15,7 @@ public class Invoker
 	/// <summary>
 	/// Gets the queue of tasks to be executed.
 	/// </summary>
-	private ConcurrentQueue<Task> TaskQueue { get; } = new();
+	internal ConcurrentQueue<Task> TaskQueue { get; } = new();
 
 	/// <summary>
 	/// Invokes the specified action asynchronously.
