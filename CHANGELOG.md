@@ -1,3 +1,10 @@
+## v1.1.0 (minor)
+
+Changes since v1.0.0:
+
+- Add LICENSE template ([@matt-edmondson](https://github.com/matt-edmondson))
+- Update changelog script to include additional version check for the initial version ([@matt-edmondson](https://github.com/matt-edmondson))
+
 ## v1.0.0 (major)
 
 Changes since v0.0.1:
