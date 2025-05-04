@@ -1,3 +1,7 @@
+// Copyright (c) ktsu.dev
+// All rights reserved.
+// Licensed under the MIT license.
+
 namespace ktsu.Invoker.Test;
 
 [TestClass]
@@ -14,7 +18,7 @@ public class InvokerTests
 	public async Task InvokeAsyncSameThreadShouldInvokeImmediately()
 	{
 		var invoker = new Invoker();
-		bool invoked = false;
+		var invoked = false;
 		await invoker.InvokeAsync(() => invoked = true).ConfigureAwait(false);
 		Assert.IsTrue(invoked, "Action should be invoked immediately on same thread.");
 	}
@@ -30,7 +34,7 @@ public class InvokerTests
 	public void InvokeSameThreadShouldInvokeImmediately()
 	{
 		var invoker = new Invoker();
-		bool invoked = false;
+		var invoked = false;
 		invoker.Invoke(() => invoked = true);
 		Assert.IsTrue(invoked, "Action should be invoked immediately on same thread.");
 	}
@@ -46,7 +50,7 @@ public class InvokerTests
 	public async Task InvokeAsyncFunctionShouldReturnValue()
 	{
 		var invoker = new Invoker();
-		int result = await invoker.InvokeAsync(() => 42).ConfigureAwait(false);
+		var result = await invoker.InvokeAsync(() => 42).ConfigureAwait(false);
 		Assert.AreEqual(42, result, "Function should return correct value.");
 	}
 
@@ -61,7 +65,7 @@ public class InvokerTests
 	public void InvokeFunctionShouldReturnValue()
 	{
 		var invoker = new Invoker();
-		int result = invoker.Invoke(() => 42);
+		var result = invoker.Invoke(() => 42);
 		Assert.AreEqual(42, result, "Function should return correct value.");
 	}
 
