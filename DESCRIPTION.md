@@ -1,1 +1,1 @@
-A library that provides methods to ensure delegates are executed on the intended thread.
+A .NET library that ensures delegates are executed on the intended thread, simplifying thread management in UI and graphics applications.

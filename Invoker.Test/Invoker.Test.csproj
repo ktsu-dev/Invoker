@@ -1,5 +1,2 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <IsTestProject>true</IsTestProject>
-  </PropertyGroup>
+<Project Sdk="ktsu.Sdk.Test/1.8.0">
 </Project>
