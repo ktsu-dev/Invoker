@@ -1,6 +1,6 @@
 MIT License
 
-https://github.com/ktsu-dev/ktsu-dev/Invoker
+https://github.com/ktsu-dev/Invoker
 
 Copyright (c) 2023-2025 ktsu-dev
 
