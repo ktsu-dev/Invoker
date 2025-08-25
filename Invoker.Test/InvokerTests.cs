@@ -4,21 +4,23 @@
 
 namespace ktsu.Invoker.Test;
 
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
 [TestClass]
 public class InvokerTests
 {
 	[TestMethod]
 	public async Task InvokeAsyncActionNullShouldThrowArgumentNullException()
 	{
-		var invoker = new Invoker();
-		await Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await invoker.InvokeAsync(null!).ConfigureAwait(false)).ConfigureAwait(false);
+		Invoker invoker = new();
+		await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await invoker.InvokeAsync(null!).ConfigureAwait(false)).ConfigureAwait(false);
 	}
 
 	[TestMethod]
 	public async Task InvokeAsyncSameThreadShouldInvokeImmediately()
 	{
-		var invoker = new Invoker();
-		var invoked = false;
+		Invoker invoker = new();
+		bool invoked = false;
 		await invoker.InvokeAsync(() => invoked = true).ConfigureAwait(false);
 		Assert.IsTrue(invoked, "Action should be invoked immediately on same thread.");
 	}
@@ -26,15 +28,15 @@ public class InvokerTests
 	[TestMethod]
 	public void InvokeActionNullShouldThrowArgumentNullException()
 	{
-		var invoker = new Invoker();
-		Assert.ThrowsException<ArgumentNullException>(() => invoker.Invoke(null!));
+		Invoker invoker = new();
+		Assert.ThrowsExactly<ArgumentNullException>(() => invoker.Invoke(null!));
 	}
 
 	[TestMethod]
 	public void InvokeSameThreadShouldInvokeImmediately()
 	{
-		var invoker = new Invoker();
-		var invoked = false;
+		Invoker invoker = new();
+		bool invoked = false;
 		invoker.Invoke(() => invoked = true);
 		Assert.IsTrue(invoked, "Action should be invoked immediately on same thread.");
 	}
@@ -42,39 +44,39 @@ public class InvokerTests
 	[TestMethod]
 	public async Task InvokeAsyncFunctionNullShouldThrowArgumentNullException()
 	{
-		var invoker = new Invoker();
-		await Assert.ThrowsExceptionAsync<ArgumentNullException>(async () => await invoker.InvokeAsync((Func<int>)null!).ConfigureAwait(false)).ConfigureAwait(false);
+		Invoker invoker = new();
+		await Assert.ThrowsExactlyAsync<ArgumentNullException>(async () => await invoker.InvokeAsync((Func<int>)null!).ConfigureAwait(false)).ConfigureAwait(false);
 	}
 
 	[TestMethod]
 	public async Task InvokeAsyncFunctionShouldReturnValue()
 	{
-		var invoker = new Invoker();
-		var result = await invoker.InvokeAsync(() => 42).ConfigureAwait(false);
+		Invoker invoker = new();
+		int result = await invoker.InvokeAsync(() => 42).ConfigureAwait(false);
 		Assert.AreEqual(42, result, "Function should return correct value.");
 	}
 
 	[TestMethod]
 	public void InvokeFunctionNullShouldThrowArgumentNullException()
 	{
-		var invoker = new Invoker();
-		Assert.ThrowsException<ArgumentNullException>(() => invoker.Invoke<int>(null!));
+		Invoker invoker = new();
+		Assert.ThrowsExactly<ArgumentNullException>(() => invoker.Invoke<int>(null!));
 	}
 
 	[TestMethod]
 	public void InvokeFunctionShouldReturnValue()
 	{
-		var invoker = new Invoker();
-		var result = invoker.Invoke(() => 42);
+		Invoker invoker = new();
+		int result = invoker.Invoke(() => 42);
 		Assert.AreEqual(42, result, "Function should return correct value.");
 	}
 
 	[TestMethod]
 	public void DoInvokesDifferentThreadShouldThrowInvalidOperationException()
 	{
-		var invoker = new Invoker();
+		Invoker invoker = new();
 		Exception? ex = null;
-		var thread = new Thread(() =>
+		Thread thread = new(() =>
 		{
 			try
 			{
@@ -94,7 +96,7 @@ public class InvokerTests
 	[TestMethod]
 	public void DoInvokesSameThreadShouldExecuteAllTasks()
 	{
-		var invoker = new Invoker();
+		Invoker invoker = new();
 		bool invoked1 = false, invoked2 = false;
 
 		Task.Run(() =>

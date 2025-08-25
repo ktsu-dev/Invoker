@@ -1,7 +1,13 @@
-namespace ktsu.Invoker;
+// Copyright (c) ktsu.dev
+// All rights reserved.
+// Licensed under the MIT license.
+
+namespace ktsu.Invoker.Sample;
 
 internal class Sample
 {
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "<Pending>")]
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "<Pending>")]
 	internal static async Task Main()
 	{
 		ContextDependent contextDependent = new();
@@ -10,7 +16,7 @@ internal class Sample
 		contextDependent.Invoker.Invoke(ContextDependent.DoWork);
 
 		// Invoking from a different thread will queue the delegate to be executed by the owning thread
-		var queuedTask = Task.Run(() => contextDependent.Invoker.Invoke(ContextDependent.DoWork));
+		Task queuedTask = Task.Run(() => contextDependent.Invoker.Invoke(ContextDependent.DoWork));
 
 		// Call DoInvokes() on the owning thread to consume and execute queued tasks
 		contextDependent.Invoker.DoInvokes();

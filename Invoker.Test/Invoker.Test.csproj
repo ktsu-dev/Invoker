@@ -1,2 +1,17 @@
-<Project Sdk="ktsu.Sdk.Test/1.8.0">
+<Project>
+  <Sdk Name="MStest.Sdk" />
+  <Sdk Name="ktsu.Sdk" />
+
+  <PropertyGroup>
+    <IsTestProject>true</IsTestProject>
+    <TargetFramework>net9.0</TargetFramework>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
+    <TestingPlatformShowTestsFailureDetails>true</TestingPlatformShowTestsFailureDetails>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Invoker\Invoker.csproj" />
+  </ItemGroup>
+
 </Project>

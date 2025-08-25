@@ -29,7 +29,11 @@ public class Invoker
 	/// <exception cref="ArgumentNullException">Thrown when the action is null.</exception>
 	public async Task InvokeAsync(Action func)
 	{
+#if !NET6_0_OR_GREATER
+		ArgumentNullExceptionPolyfill.ThrowIfNull(func);
+#else
 		ArgumentNullException.ThrowIfNull(func);
+#endif
 
 		if (ThreadId == Environment.CurrentManagedThreadId)
 		{
@@ -68,7 +72,11 @@ public class Invoker
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	public async Task<TReturn> InvokeAsync<TReturn>(Func<TReturn> func)
 	{
+#if !NET6_0_OR_GREATER
+		ArgumentNullExceptionPolyfill.ThrowIfNull(func);
+#else
 		ArgumentNullException.ThrowIfNull(func);
+#endif
 
 		if (ThreadId == Environment.CurrentManagedThreadId)
 		{
@@ -110,7 +118,7 @@ public class Invoker
 			throw new InvalidOperationException("This method must be called on the thread that created the Invoker instance.");
 		}
 
-		while (TaskQueue.TryDequeue(out var task))
+		while (TaskQueue.TryDequeue(out Task? task))
 		{
 			task.RunSynchronously();
 		}
