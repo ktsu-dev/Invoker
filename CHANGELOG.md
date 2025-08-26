@@ -1,3 +1,6 @@
+## v1.1.1
+
+No significant changes detected since v1.1.1.
 ## v1.1.1 (patch)
 
 Changes since v1.1.0:
@@ -17,9 +20,7 @@ Changes since v1.1.1-pre.1:
 - Sync .runsettings ([@ktsu[bot]](https://github.com/ktsu[bot]))
 ## v1.1.1-pre.1 (prerelease)
 
-Changes since v1.1.0:
-
-- Sync .editorconfig ([@ktsu[bot]](https://github.com/ktsu[bot]))
+Incremental prerelease update.
 ## v1.1.0 (minor)
 
 Changes since v1.0.0:
