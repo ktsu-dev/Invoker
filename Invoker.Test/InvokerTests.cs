@@ -99,11 +99,13 @@ public class InvokerTests
 		Invoker invoker = new();
 		bool invoked1 = false, invoked2 = false;
 
-		Task.Run(() =>
+		Thread thread = new(() =>
 		{
 			_ = invoker.InvokeAsync(() => invoked1 = true);
 			_ = invoker.InvokeAsync(() => invoked2 = true);
-		}).Wait();
+		});
+		thread.Start();
+		thread.Join();
 
 		Assert.IsFalse(invoked1 && invoked2, "Tasks should not be executed yet");
 		Assert.AreEqual(2, invoker.TaskQueue.Count, "Tasks should be queued.");
