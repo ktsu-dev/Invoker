@@ -6,7 +6,7 @@
     <IsTestProject>true</IsTestProject>
     <TargetFramework>net10.0</TargetFramework>
     <TargetFrameworks></TargetFrameworks>
-  </PropertyGroup>
+      </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Invoker\Invoker.csproj" />

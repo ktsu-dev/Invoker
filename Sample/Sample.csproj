@@ -4,6 +4,12 @@
   <Sdk Name="ktsu.Sdk.ConsoleApp" />
 
   <ItemGroup>
+    <PackageReference Include="Polyfill" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" />
+    <PackageReference Include="Microsoft.SourceLink.AzureRepos.Git" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Invoker\Invoker.csproj" />
   </ItemGroup>
 </Project>

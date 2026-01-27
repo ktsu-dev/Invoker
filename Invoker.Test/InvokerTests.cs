@@ -2,6 +2,8 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
+[assembly: Parallelize(Scope = ExecutionScope.MethodLevel)]
+
 namespace ktsu.Invoker.Test;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -108,7 +110,7 @@ public class InvokerTests
 		thread.Join();
 
 		Assert.IsFalse(invoked1 && invoked2, "Tasks should not be executed yet");
-		Assert.AreEqual(2, invoker.TaskQueue.Count, "Tasks should be queued.");
+		Assert.HasCount(2, invoker.TaskQueue, "Tasks should be queued.");
 
 		invoker.DoInvokes();
 
