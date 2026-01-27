@@ -29,7 +29,7 @@ public class Invoker
 	/// <exception cref="ArgumentNullException">Thrown when the action is null.</exception>
 	public async Task InvokeAsync(Action func)
 	{
-		Guard.NotNull(func);
+		Ensure.NotNull(func);
 
 		if (ThreadId == Environment.CurrentManagedThreadId)
 		{
@@ -68,7 +68,7 @@ public class Invoker
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	public async Task<TReturn> InvokeAsync<TReturn>(Func<TReturn> func)
 	{
-		Guard.NotNull(func);
+		Ensure.NotNull(func);
 
 		if (ThreadId == Environment.CurrentManagedThreadId)
 		{

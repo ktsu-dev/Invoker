@@ -2,4 +2,8 @@
   <Sdk Name="Microsoft.NET.Sdk" />
   <Sdk Name="ktsu.Sdk" />
   <Sdk Name="ktsu.Sdk.ConsoleApp" />
+
+  <ItemGroup>
+    <ProjectReference Include="..\Invoker\Invoker.csproj" />
+  </ItemGroup>
 </Project>
