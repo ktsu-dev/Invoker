@@ -1,3 +1,6 @@
+## v1.1.3
+
+No significant changes detected since v1.1.3.
 ## v1.1.3 (patch)
 
 Changes since v1.1.2:
@@ -5,13 +8,7 @@ Changes since v1.1.2:
 - Remove .github\workflows\project.yml ([@matt-edmondson](https://github.com/matt-edmondson))
 ## v1.1.3-pre.1 (prerelease)
 
-Changes since v1.1.2:
-
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .gitignore ([@ktsu[bot]](https://github.com/ktsu[bot]))
+Incremental prerelease update.
 ## v1.1.2 (patch)
 
 Changes since v1.1.1:
