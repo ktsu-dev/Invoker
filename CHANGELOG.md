@@ -1,6 +1,10 @@
-## v1.1.3
+## v1.1.4-pre.1 (prerelease)
 
-No significant changes detected since v1.1.3.
+Changes since v1.1.3:
+
+- Sync COPYRIGHT.md ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync scripts\update-winget-manifests.ps1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
 ## v1.1.3 (patch)
 
 Changes since v1.1.2:
