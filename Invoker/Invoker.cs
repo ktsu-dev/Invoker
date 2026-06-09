@@ -27,7 +27,9 @@ using System.Collections.Concurrent;
 /// publish it through a dedicated single-producer/single-consumer ring buffer instead.
 /// </para>
 /// </remarks>
-public class Invoker
+/// <param name="beginInvokeCapacity">The capacity of the non-blocking <see cref="TryBeginInvoke(Action)"/> queue. Rounded up to the next power of two.</param>
+/// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="beginInvokeCapacity"/> is less than one.</exception>
+public class Invoker(int beginInvokeCapacity)
 {
 	/// <summary>
 	/// The default capacity of the non-blocking <see cref="TryBeginInvoke(Action)"/> queue.
@@ -47,7 +49,7 @@ public class Invoker
 	/// <summary>
 	/// Gets the bounded, lock-free queue backing <see cref="TryBeginInvoke(Action)"/>.
 	/// </summary>
-	private BoundedMpscQueue<Action> BeginInvokeQueue { get; }
+	private BoundedMpscQueue<Action> BeginInvokeQueue { get; } = new(beginInvokeCapacity);
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="Invoker"/> class owned by the calling thread, with
@@ -57,13 +59,6 @@ public class Invoker
 		: this(DefaultBeginInvokeCapacity)
 	{
 	}
-
-	/// <summary>
-	/// Initializes a new instance of the <see cref="Invoker"/> class owned by the calling thread.
-	/// </summary>
-	/// <param name="beginInvokeCapacity">The capacity of the non-blocking <see cref="TryBeginInvoke(Action)"/> queue. Rounded up to the next power of two.</param>
-	/// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="beginInvokeCapacity"/> is less than one.</exception>
-	public Invoker(int beginInvokeCapacity) => BeginInvokeQueue = new BoundedMpscQueue<Action>(beginInvokeCapacity);
 
 	/// <summary>
 	/// Invokes the specified action asynchronously.
