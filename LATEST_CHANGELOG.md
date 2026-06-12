@@ -2,6 +2,7 @@
 
 Changes since v1.1.0:
 
+- Update exception handling and method XML docs ([@matt-edmondson](https://github.com/matt-edmondson))
 - Use a primary constructor in Invoker ([@Claude](https://github.com/Claude))
 - Add non-blocking TryBeginInvoke and clarify threading model ([@Claude](https://github.com/Claude))
 - Add TAGS.md with NuGet package tags ([@matt-edmondson](https://github.com/matt-edmondson))
