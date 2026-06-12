@@ -94,7 +94,7 @@ public class Invoker(int beginInvokeCapacity)
 		}
 		catch (AggregateException ex)
 		{
-			throw ex.InnerException!;
+			throw ex.InnerException ?? ex;
 		}
 	}
 
@@ -134,12 +134,12 @@ public class Invoker(int beginInvokeCapacity)
 		}
 		catch (AggregateException ex)
 		{
-			throw ex.InnerException!;
+			throw ex.InnerException ?? ex;
 		}
 	}
 
 	/// <summary>
-	/// Attempts to queue an action for fire-and-forget execution on the owner thread without blocking
+	/// Attempts to queue an action
 	/// or allocating.
 	/// </summary>
 	/// <param name="func">The action to queue.</param>
