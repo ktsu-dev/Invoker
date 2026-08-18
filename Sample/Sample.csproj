@@ -4,7 +4,7 @@
   <Sdk Name="ktsu.Sdk.ConsoleApp" />
 
   <ItemGroup>
-    <PackageReference Include="Polyfill" />
+    <PackageReference Include="Polyfill" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
