@@ -2,11 +2,13 @@
 
 > A .NET library that ensures delegates are executed on the intended thread, simplifying thread management in UI and graphics applications.
 
-[![License](https://img.shields.io/github/license/ktsu-dev/Invoker)](https://github.com/ktsu-dev/Invoker/blob/main/LICENSE.md)
-[![NuGet](https://img.shields.io/nuget/v/ktsu.Invoker.svg)](https://www.nuget.org/packages/ktsu.Invoker/)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/ktsu.Invoker.svg)](https://www.nuget.org/packages/ktsu.Invoker/)
-[![Build Status](https://github.com/ktsu-dev/Invoker/workflows/build/badge.svg)](https://github.com/ktsu-dev/Invoker/actions)
-[![GitHub Stars](https://img.shields.io/github/stars/ktsu-dev/Invoker?style=social)](https://github.com/ktsu-dev/Invoker/stargazers)
+[![License](https://img.shields.io/github/license/ktsu-dev/Invoker.svg?label=License&logo=nuget)](LICENSE.md)
+[![NuGet Version](https://img.shields.io/nuget/v/ktsu.Invoker?label=Stable&logo=nuget)](https://nuget.org/packages/ktsu.Invoker)
+[![NuGet Version](https://img.shields.io/nuget/vpre/ktsu.Invoker?label=Latest&logo=nuget)](https://nuget.org/packages/ktsu.Invoker)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/ktsu.Invoker?label=Downloads&logo=nuget)](https://nuget.org/packages/ktsu.Invoker)
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/ktsu-dev/Invoker?label=Commits&logo=github)](https://github.com/ktsu-dev/Invoker/commits/main)
+[![GitHub contributors](https://img.shields.io/github/contributors/ktsu-dev/Invoker?label=Contributors&logo=github)](https://github.com/ktsu-dev/Invoker/graphs/contributors)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ktsu-dev/Invoker/dotnet.yml?label=Build&logo=github)](https://github.com/ktsu-dev/Invoker/actions)
 
 ## Introduction
 
