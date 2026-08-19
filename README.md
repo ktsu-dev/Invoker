@@ -8,7 +8,7 @@
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ktsu.Invoker?label=Downloads&logo=nuget)](https://nuget.org/packages/ktsu.Invoker)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/ktsu-dev/Invoker?label=Commits&logo=github)](https://github.com/ktsu-dev/Invoker/commits/main)
 [![GitHub contributors](https://img.shields.io/github/contributors/ktsu-dev/Invoker?label=Contributors&logo=github)](https://github.com/ktsu-dev/Invoker/graphs/contributors)
-[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ktsu-dev/Invoker/dotnet.yml?label=Build&logo=github)](https://github.com/ktsu-dev/Invoker/actions)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ktsu-dev/Invoker/dotnet.yml?branch=main&label=Build&logo=github)](https://github.com/ktsu-dev/Invoker/actions)
 
 ## Introduction
 
