@@ -1,4 +1,6 @@
-## v1.2.22
+## v1.2.23 (patch)
 
-No significant changes detected since v1.2.22.
+Changes since v1.2.22:
+
+- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
 
