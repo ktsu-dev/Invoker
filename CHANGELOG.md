@@ -1,6 +1,8 @@
-## v1.2.24
+## v1.2.25 (patch)
 
-No significant changes detected since v1.2.24.
+Changes since v1.2.24:
+
+- ci: adopt the unified dotnet workflow [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
 
 ## v1.2.24 (patch)
 
