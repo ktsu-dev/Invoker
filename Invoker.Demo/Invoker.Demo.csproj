@@ -3,6 +3,12 @@
   <Sdk Name="ktsu.Sdk" />
   <Sdk Name="ktsu.Sdk.ConsoleApp" />
 
+  <PropertyGroup>
+    <!-- A demonstration project, not a deliverable. ktsu.Sdk already keeps an OutputType=Exe
+         project out of the pack, but saying so here does not rely on that staying true. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Polyfill" PrivateAssets="all" />
   </ItemGroup>

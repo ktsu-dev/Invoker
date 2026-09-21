@@ -5,7 +5,7 @@ VisualStudioVersion = 17.8.34316.72
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Invoker", "Invoker\Invoker.csproj", "{C0C477B1-8C6A-7715-A025-C0E0B48802D1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sample", "Sample\Sample.csproj", "{5A7F8005-C165-6259-8009-1115B9A95056}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Invoker.Demo", "Invoker.Demo\Invoker.Demo.csproj", "{5A7F8005-C165-6259-8009-1115B9A95056}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Invoker.Test", "Invoker.Test\Invoker.Test.csproj", "{97DD3E20-FCE6-19CC-3578-8172883F1E02}"
 EndProject
