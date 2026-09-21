@@ -62,7 +62,7 @@ public partial class ProjectNamingTests
 	public void EverySolutionEntryMatchesItsProjectFile()
 	{
 		DirectoryInfo root = FindSolutionRoot();
-		string solution = File.ReadAllText(Path.Combine(root.FullName, SolutionFileName));
+		string solution = File.ReadAllText(Path.Join(root.FullName, SolutionFileName));
 		MatchCollection entries = SolutionProjectEntry().Matches(solution);
 
 		Assert.IsTrue(entries.Count > 0, $"No project entries found in {SolutionFileName}; the test is not reading what it thinks it is.");
@@ -85,7 +85,9 @@ public partial class ProjectNamingTests
 			{
 				offenders.Add($"{name} is outside the ktsu.{Family} family");
 			}
-			else if (!File.Exists(Path.Combine(root.FullName, localPath)))
+			// Path.Join, not Path.Combine: the path comes from the solution's own text, and a rooted
+			// entry would make Combine drop the repository root and test a file outside it.
+			else if (!File.Exists(Path.Join(root.FullName, localPath)))
 			{
 				offenders.Add($"{name} points at {path}, which does not exist");
 			}
@@ -109,7 +111,7 @@ public partial class ProjectNamingTests
 	private static DirectoryInfo FindSolutionRoot()
 	{
 		DirectoryInfo? directory = new(AppContext.BaseDirectory);
-		while (directory is not null && !File.Exists(Path.Combine(directory.FullName, SolutionFileName)))
+		while (directory is not null && !File.Exists(Path.Join(directory.FullName, SolutionFileName)))
 		{
 			directory = directory.Parent;
 		}
