@@ -1,6 +1,8 @@
-## v1.2.33
+## v1.2.34 (patch)
 
-No significant changes detected since v1.2.33.
+Changes since v1.2.33:
+
+- Bump Polyfill from 11.3.0 to 11.4.0 ([@dependabot[bot]](https://github.com/dependabot[bot]))
 
 ## v1.2.33 (patch)
 
