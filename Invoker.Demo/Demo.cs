@@ -1,8 +1,8 @@
 // Copyright (c) 2023-2026 ktsu-dev contributors
 
-namespace ktsu.Invoker.Sample;
+namespace ktsu.Invoker.Demo;
 
-internal sealed class Sample
+internal sealed class Demo
 {
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "<Pending>")]
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Reliability", "CA2007:Consider calling ConfigureAwait on the awaited task", Justification = "<Pending>")]

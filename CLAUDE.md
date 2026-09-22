@@ -26,8 +26,10 @@ The library consists of a single class `Invoker` in `Invoker/Invoker.cs`:
 
 - **Invoker/** - Main library (multi-targets via ktsu.Sdk)
 - **Invoker.Test/** - MSTest unit tests (targets net10.0 only)
-- **Sample/** - Console app demonstrating usage
+- **Invoker.Demo/** - Console app demonstrating usage (not packable)
 
 ## SDK Configuration
 
 Projects use `ktsu.Sdk` which provides centralized build configuration. Package versions are managed centrally in `Directory.Packages.props`.
+
+`ktsu.Sdk` derives each project's assembly name and package ID from its solution-relative folder path, so a project folder is an identity claim: `Invoker.Demo/` produces `ktsu.Invoker.Demo`, while a folder without the family prefix would claim a name this repository does not own. `ProjectNamingTests` fails the build if a project folder, its `.csproj` filename, or its solution entry stops agreeing with that convention.
