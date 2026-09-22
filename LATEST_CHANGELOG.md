@@ -1,7 +1,6 @@
-## v1.2.35 (patch)
+## v1.2.36 (patch)
 
-Changes since v1.2.34:
+Changes since v1.2.35:
 
-- Join paths instead of combining them in ProjectNamingTests ([@Claude](https://github.com/Claude))
-- [patch] Rename the Sample project to Invoker.Demo ([@Claude](https://github.com/Claude))
+- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
 
