@@ -1,3 +1,7 @@
+## v1.2.38
+
+No significant changes detected since v1.2.38.
+
 ## v1.2.38 (patch)
 
 Changes since v1.2.37:
