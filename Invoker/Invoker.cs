@@ -84,17 +84,9 @@ public class Invoker(int beginInvokeCapacity)
 	/// </summary>
 	/// <param name="func">The action to invoke.</param>
 	/// <exception cref="ArgumentNullException">Thrown when the action is null.</exception>
-	public void Invoke(Action func)
-	{
-		try
-		{
-			InvokeAsync(func).Wait();
-		}
-		catch (AggregateException ex)
-		{
-			throw ex.InnerException ?? ex;
-		}
-	}
+	// GetAwaiter().GetResult() rethrows the delegate's own exception with its stack trace intact,
+	// where unwrapping the AggregateException from Wait() and rethrowing it would reset the trace.
+	public void Invoke(Action func) => InvokeAsync(func).GetAwaiter().GetResult();
 
 	/// <summary>
 	/// Invokes the specified function asynchronously and returns the result.
@@ -124,17 +116,8 @@ public class Invoker(int beginInvokeCapacity)
 	/// <param name="func">The function to invoke.</param>
 	/// <returns>The result of the function.</returns>
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
-	public TReturn Invoke<TReturn>(Func<TReturn> func)
-	{
-		try
-		{
-			return InvokeAsync(func).Result;
-		}
-		catch (AggregateException ex)
-		{
-			throw ex.InnerException ?? ex;
-		}
-	}
+	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
+	public TReturn Invoke<TReturn>(Func<TReturn> func) => InvokeAsync(func).GetAwaiter().GetResult();
 
 	/// <summary>
 	/// Attempts to queue an action

@@ -4,6 +4,8 @@
 
 namespace ktsu.Invoker.Test;
 
+using System.Runtime.CompilerServices;
+
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 [TestClass]
@@ -113,5 +115,59 @@ public class InvokerTests
 		invoker.DoInvokes();
 
 		Assert.IsTrue(invoked1 && invoked2, "All queued tasks should be executed on same thread.");
+	}
+
+	[TestMethod]
+	public void InvokeActionFromOtherThreadShouldPreserveStackTraceOfFailingCode()
+	{
+		Invoker invoker = new();
+		Exception? caught = RunOnWorkerWhilePumping(invoker, () => invoker.Invoke(() => ThrowFromNamedHelper()));
+
+		Assert.IsInstanceOfType<InvalidOperationException>(caught);
+		Assert.Contains(nameof(ThrowFromNamedHelper), caught.StackTrace ?? string.Empty);
+	}
+
+	[TestMethod]
+	public void InvokeFunctionFromOtherThreadShouldPreserveStackTraceOfFailingCode()
+	{
+		Invoker invoker = new();
+		Exception? caught = RunOnWorkerWhilePumping(invoker, () => invoker.Invoke(ReturnFromNamedHelper));
+
+		Assert.IsInstanceOfType<InvalidOperationException>(caught);
+		Assert.Contains(nameof(ReturnFromNamedHelper), caught.StackTrace ?? string.Empty);
+	}
+
+	[MethodImpl(MethodImplOptions.NoInlining)]
+	private static void ThrowFromNamedHelper() => throw new InvalidOperationException("failed on the owner thread");
+
+	[MethodImpl(MethodImplOptions.NoInlining)]
+	private static int ReturnFromNamedHelper() => throw new InvalidOperationException("failed on the owner thread");
+
+	/// <summary>
+	/// Runs <paramref name="call"/> on a worker thread while the calling (owner) thread pumps
+	/// <see cref="Invoker.DoInvokes"/>, and returns whatever the call threw.
+	/// </summary>
+	private static Exception? RunOnWorkerWhilePumping(Invoker invoker, Action call)
+	{
+		Exception? caught = null;
+		Thread worker = new(() =>
+		{
+			try
+			{
+				call();
+			}
+			catch (InvalidOperationException e)
+			{
+				caught = e;
+			}
+		});
+		worker.Start();
+
+		while (!worker.Join(1))
+		{
+			invoker.DoInvokes();
+		}
+
+		return caught;
 	}
 }
