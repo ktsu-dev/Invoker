@@ -1,6 +1,8 @@
-## v1.3.0
+## v1.3.1-pre.1 (prerelease)
 
-No significant changes detected since v1.3.0.
+Changes since v1.3.0:
+
+- Bump Polyfill from 11.4.0 to 11.4.1 ([@dependabot[bot]](https://github.com/dependabot[bot]))
 
 ## v1.3.0 (minor)
 
@@ -19,8 +21,10 @@ Changes since v1.2.0:
 - docs: correct README, DESCRIPTION and TAGS metadata ([@matt-edmondson](https://github.com/matt-edmondson))
 - Fix build against ktsu.Sdk 2.27.0 ([@matt-edmondson](https://github.com/matt-edmondson))
 - Stop Update SDKs failing when there is nothing to update ([@matt-edmondson](https://github.com/matt-edmondson))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 - Sync .editorconfig ([@KtsuTools](https://github.com/KtsuTools))
 - Sync global.json ([@KtsuTools](https://github.com/KtsuTools))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 - chore: update ktsu.Sdk to 2.21.1 [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
 - chore: remove unused SourceLink package versions ([@matt-edmondson](https://github.com/matt-edmondson))
 - chore: remove SourceLink package references from projects ([@matt-edmondson](https://github.com/matt-edmondson))
@@ -137,8 +141,10 @@ Changes since v1.2.20:
 
 - Fix build against ktsu.Sdk 2.27.0 ([@matt-edmondson](https://github.com/matt-edmondson))
 - Stop Update SDKs failing when there is nothing to update ([@matt-edmondson](https://github.com/matt-edmondson))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 - Sync .editorconfig ([@KtsuTools](https://github.com/KtsuTools))
 - Sync global.json ([@KtsuTools](https://github.com/KtsuTools))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 
 ## v1.2.20 (patch)
 
@@ -289,7 +295,9 @@ Changes since v1.1.0:
 - Use a primary constructor in Invoker ([@Claude](https://github.com/Claude))
 - Add non-blocking TryBeginInvoke and clarify threading model ([@Claude](https://github.com/Claude))
 - Add TAGS.md with NuGet package tags ([@matt-edmondson](https://github.com/matt-edmondson))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 - Remove legacy build scripts ([@matt-edmondson](https://github.com/matt-edmondson))
+- Remove .github\workflows\project.yml ([@matt-edmondson](https://github.com/matt-edmondson))
 - migrate to dotnet 10 ([@matt-edmondson](https://github.com/matt-edmondson))
 - migrate to dotnet 10 ([@matt-edmondson](https://github.com/matt-edmondson))
 - Refactor asynchronous task execution in InvokerTests to use Thread instead of Task.Run, ensuring tasks are queued correctly before assertions. ([@matt-edmondson](https://github.com/matt-edmondson))
@@ -317,7 +325,11 @@ Changes since v1.1.5:
 
 ## v1.1.6-pre.1 (prerelease)
 
-No significant changes detected since v1.1.6.
+Changes since v1.1.5:
+
+- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
 
 ## v1.1.5 (patch)
 
@@ -399,22 +411,27 @@ Changes since v1.1.4-pre.1:
 
 ## v1.1.4-pre.1 (prerelease)
 
-No significant changes detected since v1.1.4.
+Changes since v1.1.3:
+
+- Sync scripts\update-winget-manifests.ps1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync COPYRIGHT.md ([@ktsu[bot]](https://github.com/ktsu[bot]))
 
 ## v1.1.3 (patch)
 
 Changes since v1.1.2:
 
 - Remove .github\workflows\project.yml ([@matt-edmondson](https://github.com/matt-edmondson))
+
+## v1.1.3-pre.1 (prerelease)
+
+Changes since v1.1.2:
+
 - Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
 - Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
 - Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
 - Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
 - Sync .gitignore ([@ktsu[bot]](https://github.com/ktsu[bot]))
-
-## v1.1.3-pre.1 (prerelease)
-
-No significant changes detected since v1.1.3.
 
 ## v1.1.2 (patch)
 
@@ -444,7 +461,14 @@ Changes since v1.1.2-pre.1:
 
 ## v1.1.2-pre.1 (prerelease)
 
-No significant changes detected since v1.1.2.
+Changes since v1.1.1:
+
+- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync scripts\update-winget-manifests.ps1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .editorconfig ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .gitignore ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .runsettings ([@ktsu[bot]](https://github.com/ktsu[bot]))
 
 ## v1.1.1 (patch)
 
@@ -467,7 +491,9 @@ Changes since v1.1.1-pre.1:
 
 ## v1.1.1-pre.1 (prerelease)
 
-No significant changes detected since v1.1.1.
+Changes since v1.1.0:
+
+- Sync .editorconfig ([@ktsu[bot]](https://github.com/ktsu[bot]))
 
 ## v1.1.0 (minor)
 
