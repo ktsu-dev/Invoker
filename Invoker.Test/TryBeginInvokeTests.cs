@@ -7,6 +7,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 [TestClass]
 public class TryBeginInvokeTests
 {
+	public TestContext TestContext { get; set; } = null!;
+
 	[TestMethod]
 	public void TryBeginInvokeNullShouldThrowArgumentNullException()
 	{
@@ -152,7 +154,7 @@ public class TryBeginInvokeTests
 		invoker.DoInvokes();
 
 		Assert.IsTrue(invokeRan, "The queued Invoke should run in the same pump as the throwing action.");
-		Assert.IsTrue(worker.Wait(TimeSpan.FromSeconds(5)), "The thread blocked in Invoke should be released.");
+		Assert.IsTrue(worker.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken), "The thread blocked in Invoke should be released.");
 		Assert.HasCount(1, failures);
 		Assert.AreEqual("fire-and-forget failed", failures[0].Message);
 	}
@@ -200,6 +202,6 @@ public class TryBeginInvokeTests
 		Assert.IsInstanceOfType<InvalidOperationException>(aggregate.InnerExceptions[0]);
 		Assert.IsInstanceOfType<ArgumentException>(aggregate.InnerExceptions[1]);
 		Assert.IsTrue(invokeRan, "Both queues should be drained before the aggregate is thrown.");
-		Assert.IsTrue(worker.Wait(TimeSpan.FromSeconds(5)), "The thread blocked in Invoke should be released.");
+		Assert.IsTrue(worker.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken), "The thread blocked in Invoke should be released.");
 	}
 }

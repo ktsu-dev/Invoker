@@ -206,12 +206,14 @@ public class Invoker(int beginInvokeCapacity)
 			return;
 		}
 
-		EventHandler<BeginInvokeFailedEventArgs> handler = BeginInvokeFailed
-			?? throw new AggregateException("One or more actions queued with TryBeginInvoke threw.", failures);
+		if (BeginInvokeFailed is null)
+		{
+			throw new AggregateException("One or more actions queued with TryBeginInvoke threw.", failures);
+		}
 
 		foreach (Exception failure in failures)
 		{
-			handler(this, new BeginInvokeFailedEventArgs(failure));
+			BeginInvokeFailed?.Invoke(this, new BeginInvokeFailedEventArgs(failure));
 		}
 	}
 }
