@@ -133,4 +133,73 @@ public class TryBeginInvokeTests
 
 		Assert.AreEqual(total, executed, "Every queued action from every producer must run exactly once.");
 	}
+
+	[TestMethod]
+	public void ThrowingActionDoesNotStarveQueuedInvoke()
+	{
+		Invoker invoker = new();
+		List<Exception> failures = [];
+		invoker.BeginInvokeFailed += (_, e) => failures.Add(e.Exception);
+
+		Thread producer = new(() => invoker.TryBeginInvoke(() => throw new InvalidOperationException("fire-and-forget failed")));
+		producer.Start();
+		producer.Join();
+
+		bool invokeRan = false;
+		Task worker = Task.Run(() => invoker.Invoke(() => invokeRan = true));
+		SpinWait.SpinUntil(() => !invoker.TaskQueue.IsEmpty, TimeSpan.FromSeconds(5));
+
+		invoker.DoInvokes();
+
+		Assert.IsTrue(invokeRan, "The queued Invoke should run in the same pump as the throwing action.");
+		Assert.IsTrue(worker.Wait(TimeSpan.FromSeconds(5)), "The thread blocked in Invoke should be released.");
+		Assert.HasCount(1, failures);
+		Assert.AreEqual("fire-and-forget failed", failures[0].Message);
+	}
+
+	[TestMethod]
+	public void ThrowingActionDoesNotSkipLaterQueuedActions()
+	{
+		Invoker invoker = new();
+		invoker.BeginInvokeFailed += (_, _) => { };
+		bool laterRan = false;
+
+		Thread producer = new(() =>
+		{
+			invoker.TryBeginInvoke(() => throw new InvalidOperationException("first"));
+			invoker.TryBeginInvoke(() => laterRan = true);
+		});
+		producer.Start();
+		producer.Join();
+
+		invoker.DoInvokes();
+
+		Assert.IsTrue(laterRan, "Actions queued after a throwing one should still run in the same pump.");
+	}
+
+	[TestMethod]
+	public void ThrowingActionWithoutHandlerThrowsAggregateAfterDraining()
+	{
+		Invoker invoker = new();
+
+		Thread producer = new(() =>
+		{
+			invoker.TryBeginInvoke(() => throw new InvalidOperationException("first"));
+			invoker.TryBeginInvoke(() => throw new ArgumentException("second"));
+		});
+		producer.Start();
+		producer.Join();
+
+		bool invokeRan = false;
+		Task worker = Task.Run(() => invoker.Invoke(() => invokeRan = true));
+		SpinWait.SpinUntil(() => !invoker.TaskQueue.IsEmpty, TimeSpan.FromSeconds(5));
+
+		AggregateException aggregate = Assert.ThrowsExactly<AggregateException>(invoker.DoInvokes);
+
+		Assert.HasCount(2, aggregate.InnerExceptions);
+		Assert.IsInstanceOfType<InvalidOperationException>(aggregate.InnerExceptions[0]);
+		Assert.IsInstanceOfType<ArgumentException>(aggregate.InnerExceptions[1]);
+		Assert.IsTrue(invokeRan, "Both queues should be drained before the aggregate is thrown.");
+		Assert.IsTrue(worker.Wait(TimeSpan.FromSeconds(5)), "The thread blocked in Invoke should be released.");
+	}
 }

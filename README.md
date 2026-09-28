@@ -22,7 +22,7 @@ Invoker is a .NET library that provides methods to ensure delegates are executed
 - **Immediate Execution**: Auto-detect if already on the target thread for optimal performance
 - **Queue Management**: Built-in task queue with controlled execution timing
 - **Thread Ownership**: Clear ownership model for execution contexts
-- **Exception Propagation**: Properly propagates exceptions across thread boundaries
+- **Exception Propagation**: `Invoke`/`InvokeAsync` rethrow a delegate's exception to its own caller; a throwing `TryBeginInvoke` action is reported through the `BeginInvokeFailed` event (or an `AggregateException` from `DoInvokes` when nothing handles it) without stopping the rest of the queue
 - **Lightweight Design**: Minimal overhead for performance-critical applications
 
 ## Installation
@@ -193,7 +193,13 @@ The main class that manages execution of delegates on the intended thread.
 | `BeginInvoke` | `Action action` | `void` | Queues an action to be executed on the owner thread without waiting for completion |
 | `InvokeAsync<T>` | `Func<T> func` | `Task<T>` | Queues a function to be executed on the owner thread and returns a Task that completes with the result |
 | `InvokeAsync` | `Action action` | `Task` | Queues an action to be executed on the owner thread and returns a Task that completes when the action is done |
-| `DoInvokes` | | `void` | Processes all pending invocations (must be called from the owner thread) |
+| `DoInvokes` | | `void` | Processes all pending invocations (must be called from the owner thread). Always drains both queues; see `BeginInvokeFailed` for how fire-and-forget failures are reported |
+
+#### Events
+
+| Name | Args | Description |
+|------|------|-------------|
+| `BeginInvokeFailed` | `BeginInvokeFailedEventArgs` | Raised on the owner thread, after `DoInvokes` has drained both queues, once per `TryBeginInvoke` action that threw. With no handler attached, `DoInvokes` throws an `AggregateException` of those failures instead |
 
 ## Advanced Usage
 
