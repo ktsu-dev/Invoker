@@ -74,7 +74,9 @@ public class Invoker(int beginInvokeCapacity)
 			return;
 		}
 
-		Task task = new(func);
+		// RunContinuationsAsynchronously keeps the caller's code after the await off the owner thread:
+		// without it, DoInvokes' RunSynchronously would run that code inline, inside the pump.
+		Task task = new(func, TaskCreationOptions.RunContinuationsAsynchronously);
 		TaskQueue.Enqueue(task);
 		await task.ConfigureAwait(false);
 	}
@@ -104,7 +106,8 @@ public class Invoker(int beginInvokeCapacity)
 			return func();
 		}
 
-		Task<TReturn> task = new(func);
+		// See InvokeAsync(Action): keep the caller's continuation out of DoInvokes.
+		Task<TReturn> task = new(func, TaskCreationOptions.RunContinuationsAsynchronously);
 		TaskQueue.Enqueue(task);
 		return await task.ConfigureAwait(false);
 	}
