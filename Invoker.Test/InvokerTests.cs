@@ -170,4 +170,53 @@ public class InvokerTests
 
 		return caught;
 	}
+
+	[TestMethod]
+	public async Task InvokeAsyncActionContinuationDoesNotRunInsideDoInvokes()
+	{
+		Invoker invoker = new();
+		await AssertContinuationLeavesOwnerThread(invoker, () => invoker.InvokeAsync(() => { })).ConfigureAwait(false);
+	}
+
+	[TestMethod]
+	public async Task InvokeAsyncFunctionContinuationDoesNotRunInsideDoInvokes()
+	{
+		Invoker invoker = new();
+		await AssertContinuationLeavesOwnerThread(invoker, () => invoker.InvokeAsync(() => 42)).ConfigureAwait(false);
+	}
+
+	/// <summary>
+	/// Awaits <paramref name="invoke"/> from a thread-pool thread whose code after the await blocks
+	/// until <see cref="Invoker.DoInvokes"/> has returned. If that code ran inline inside the pump, it
+	/// would be waiting on itself, time out, and see that DoInvokes had not returned yet.
+	/// </summary>
+	/// <remarks>
+	/// The test's own thread is a pool thread too, so once it stops pumping it may legitimately pick
+	/// the continuation up. What must not happen is the continuation running on it during the pump.
+	/// </remarks>
+	private static async Task AssertContinuationLeavesOwnerThread(Invoker invoker, Func<Task> invoke)
+	{
+		int pumpingThreadId = 0;
+		using ManualResetEventSlim doInvokesReturned = new();
+		bool ranInsidePump = false;
+		bool sawDoInvokesReturn = false;
+
+		Task worker = Task.Run(async () =>
+		{
+			await invoke().ConfigureAwait(false);
+			ranInsidePump = Volatile.Read(ref pumpingThreadId) == Environment.CurrentManagedThreadId;
+			sawDoInvokesReturn = doInvokesReturned.Wait(TimeSpan.FromSeconds(2));
+		});
+
+		Assert.IsTrue(SpinWait.SpinUntil(() => !invoker.TaskQueue.IsEmpty, TimeSpan.FromSeconds(5)), "The worker should queue its delegate.");
+
+		Volatile.Write(ref pumpingThreadId, Environment.CurrentManagedThreadId);
+		invoker.DoInvokes();
+		Volatile.Write(ref pumpingThreadId, 0);
+		doInvokesReturned.Set();
+		await worker.ConfigureAwait(false);
+
+		Assert.IsFalse(ranInsidePump, "Code after the await should not run on the owner thread inside DoInvokes.");
+		Assert.IsTrue(sawDoInvokesReturn, "DoInvokes should return without waiting on the caller's code after the await.");
+	}
 }
