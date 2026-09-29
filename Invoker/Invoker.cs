@@ -154,9 +154,28 @@ public class Invoker(int beginInvokeCapacity)
 	}
 
 	/// <summary>
+	/// Occurs on the owner thread, from within <see cref="DoInvokes"/>, for each action queued with
+	/// <see cref="TryBeginInvoke(Action)"/> that threw.
+	/// </summary>
+	/// <remarks>
+	/// Raised only after both queues have been drained, so a failing action never delays other queued
+	/// work. When no handler is attached, <see cref="DoInvokes"/> throws an
+	/// <see cref="AggregateException"/> instead, so the failure is never silently lost.
+	/// </remarks>
+	public event EventHandler<BeginInvokeFailedEventArgs>? BeginInvokeFailed;
+
+	/// <summary>
 	/// Executes all queued tasks synchronously on the thread that created the Invoker instance.
 	/// </summary>
+	/// <remarks>
+	/// Both queues are always drained in full. Exceptions from <see cref="Invoke(Action)"/> and
+	/// <see cref="InvokeAsync(Action)"/> work go back to their own callers. Exceptions from
+	/// <see cref="TryBeginInvoke(Action)"/> actions are reported through <see cref="BeginInvokeFailed"/>
+	/// once draining is done.
+	/// </remarks>
 	/// <exception cref="InvalidOperationException">Thrown when this method is called on a different thread than the one that created the Invoker instance.</exception>
+	/// <exception cref="AggregateException">Thrown after both queues have been drained when one or more <see cref="TryBeginInvoke(Action)"/> actions threw and no <see cref="BeginInvokeFailed"/> handler is attached.</exception>
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A fire-and-forget action can throw anything, and every failure is reported through BeginInvokeFailed or an AggregateException once both queues are drained.")]
 	public void DoInvokes()
 	{
 		if (ThreadId != Environment.CurrentManagedThreadId)
@@ -164,14 +183,40 @@ public class Invoker(int beginInvokeCapacity)
 			throw new InvalidOperationException("This method must be called on the thread that created the Invoker instance.");
 		}
 
+		// A fire-and-forget action has no caller to hand its exception back to, so catch it here
+		// rather than let it abort the pump: an escaping exception would skip the rest of both
+		// queues and leave every thread blocked in Invoke waiting for a pump that may never come.
+		List<Exception>? failures = null;
 		while (BeginInvokeQueue.TryDequeue(out Action? action))
 		{
-			action!();
+			try
+			{
+				action!();
+			}
+			catch (Exception ex)
+			{
+				(failures ??= []).Add(ex);
+			}
 		}
 
 		while (TaskQueue.TryDequeue(out Task? task))
 		{
 			task.RunSynchronously();
+		}
+
+		if (failures is null)
+		{
+			return;
+		}
+
+		if (BeginInvokeFailed is null)
+		{
+			throw new AggregateException("One or more actions queued with TryBeginInvoke threw.", failures);
+		}
+
+		foreach (Exception failure in failures)
+		{
+			BeginInvokeFailed?.Invoke(this, new BeginInvokeFailedEventArgs(failure));
 		}
 	}
 }
