@@ -137,7 +137,8 @@ public class Invoker(int beginInvokeCapacity)
 	/// Unlike <see cref="Invoke(Action)"/> / <see cref="InvokeAsync(Action)"/>, this method never blocks
 	/// and never allocates a <see cref="Task"/>: the caller is not notified of completion and cannot
 	/// await a result. It is intended for non-real-time producers that want to push work to the owner
-	/// thread cheaply. Queued actions run the next time <see cref="DoInvokes"/> is pumped, in FIFO order.
+	/// thread cheaply. Queued actions run the next time <see cref="DoInvokes"/> is pumped, in FIFO order;
+	/// an action queued while a pump is already running waits for the pump after it.
 	/// When called from the owner thread the action runs synchronously and immediately.
 	/// </remarks>
 	public bool TryBeginInvoke(Action func)
@@ -158,8 +159,8 @@ public class Invoker(int beginInvokeCapacity)
 	/// <see cref="TryBeginInvoke(Action)"/> that threw.
 	/// </summary>
 	/// <remarks>
-	/// Raised only after both queues have been drained, so a failing action never delays other queued
-	/// work. When no handler is attached, <see cref="DoInvokes"/> throws an
+	/// Raised only after the pump has run all the work it took on, so a failing action never delays
+	/// other queued work. When no handler is attached, <see cref="DoInvokes"/> throws an
 	/// <see cref="AggregateException"/> instead, so the failure is never silently lost.
 	/// </remarks>
 	public event EventHandler<BeginInvokeFailedEventArgs>? BeginInvokeFailed;
@@ -168,14 +169,16 @@ public class Invoker(int beginInvokeCapacity)
 	/// Executes all queued tasks synchronously on the thread that created the Invoker instance.
 	/// </summary>
 	/// <remarks>
-	/// Both queues are always drained in full. Exceptions from <see cref="Invoke(Action)"/> and
-	/// <see cref="InvokeAsync(Action)"/> work go back to their own callers. Exceptions from
-	/// <see cref="TryBeginInvoke(Action)"/> actions are reported through <see cref="BeginInvokeFailed"/>
-	/// once draining is done.
+	/// Each call runs the work that was already queued when it started, from both queues, and then
+	/// returns. Work queued while it runs, including by the actions it runs, waits for the next call,
+	/// so a producer that never stops posting cannot keep one call from returning. Exceptions from
+	/// <see cref="Invoke(Action)"/> and <see cref="InvokeAsync(Action)"/> work go back to their own
+	/// callers. Exceptions from <see cref="TryBeginInvoke(Action)"/> actions are reported through
+	/// <see cref="BeginInvokeFailed"/> once that work has run.
 	/// </remarks>
 	/// <exception cref="InvalidOperationException">Thrown when this method is called on a different thread than the one that created the Invoker instance.</exception>
-	/// <exception cref="AggregateException">Thrown after both queues have been drained when one or more <see cref="TryBeginInvoke(Action)"/> actions threw and no <see cref="BeginInvokeFailed"/> handler is attached.</exception>
-	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A fire-and-forget action can throw anything, and every failure is reported through BeginInvokeFailed or an AggregateException once both queues are drained.")]
+	/// <exception cref="AggregateException">Thrown after the queued work has run when one or more <see cref="TryBeginInvoke(Action)"/> actions threw and no <see cref="BeginInvokeFailed"/> handler is attached.</exception>
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A fire-and-forget action can throw anything, and every failure is reported through BeginInvokeFailed or an AggregateException once the pump's work has run.")]
 	public void DoInvokes()
 	{
 		if (ThreadId != Environment.CurrentManagedThreadId)
@@ -183,11 +186,17 @@ public class Invoker(int beginInvokeCapacity)
 			throw new InvalidOperationException("This method must be called on the thread that created the Invoker instance.");
 		}
 
+		// Run only the work that was queued when the pump started. Everything dequeued frees a slot, so
+		// a producer posting at least as fast as the owner runs its actions would otherwise keep this
+		// call from ever returning, freezing the owner's loop and starving the task queue below.
+		int beginInvokeBudget = BeginInvokeQueue.Count;
+		int taskBudget = TaskQueue.Count;
+
 		// A fire-and-forget action has no caller to hand its exception back to, so catch it here
 		// rather than let it abort the pump: an escaping exception would skip the rest of both
 		// queues and leave every thread blocked in Invoke waiting for a pump that may never come.
 		List<Exception>? failures = null;
-		while (BeginInvokeQueue.TryDequeue(out Action? action))
+		for (int i = 0; i < beginInvokeBudget && BeginInvokeQueue.TryDequeue(out Action? action); i++)
 		{
 			try
 			{
@@ -199,7 +208,7 @@ public class Invoker(int beginInvokeCapacity)
 			}
 		}
 
-		while (TaskQueue.TryDequeue(out Task? task))
+		for (int i = 0; i < taskBudget && TaskQueue.TryDequeue(out Task? task); i++)
 		{
 			task.RunSynchronously();
 		}

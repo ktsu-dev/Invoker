@@ -45,6 +45,23 @@ internal sealed class BoundedMpscQueue<T>
 	public int Capacity { get; }
 
 	/// <summary>
+	/// Gets the number of elements claimed by producers but not yet dequeued.
+	/// </summary>
+	/// <remarks>
+	/// A snapshot that can be stale as soon as it is read. It may count an element whose producer has
+	/// claimed a slot but not yet published it, so a consumer should still stop when
+	/// <see cref="TryDequeue"/> reports the queue empty.
+	/// </remarks>
+	public int Count
+	{
+		get
+		{
+			long count = Volatile.Read(ref enqueuePos) - Volatile.Read(ref dequeuePos);
+			return (int)Math.Clamp(count, 0, Capacity);
+		}
+	}
+
+	/// <summary>
 	/// Initializes a new instance of the <see cref="BoundedMpscQueue{T}"/> class.
 	/// </summary>
 	/// <param name="capacity">The requested capacity; rounded up to the next power of two (minimum 2).</param>
