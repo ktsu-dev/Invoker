@@ -123,6 +123,66 @@ public class Invoker(int beginInvokeCapacity)
 	public TReturn Invoke<TReturn>(Func<TReturn> func) => InvokeAsync(func).GetAwaiter().GetResult();
 
 	/// <summary>
+	/// Invokes the specified asynchronous function and waits for the task it returns to complete.
+	/// </summary>
+	/// <param name="func">The asynchronous function to invoke.</param>
+	/// <returns>A task that completes when the task returned by <paramref name="func"/> completes.</returns>
+	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
+	/// <remarks>
+	/// The function starts on the owner thread. Without this overload an async lambda would bind to
+	/// <see cref="InvokeAsync{TReturn}(Func{TReturn})"/>, whose task completes at the lambda's first
+	/// incomplete await and never surfaces an exception thrown after it.
+	/// </remarks>
+	public async Task InvokeAsync(Func<Task> func)
+	{
+		Ensure.NotNull(func);
+
+		Task inner = await InvokeAsync<Task>(func).ConfigureAwait(false);
+		await inner.ConfigureAwait(false);
+	}
+
+	/// <summary>
+	/// Invokes the specified asynchronous function, waits for the task it returns, and returns its result.
+	/// </summary>
+	/// <typeparam name="TReturn">The type of the result.</typeparam>
+	/// <param name="func">The asynchronous function to invoke.</param>
+	/// <returns>A task that completes with the result of the task returned by <paramref name="func"/>.</returns>
+	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
+	/// <remarks>See <see cref="InvokeAsync(Func{Task})"/>.</remarks>
+	public async Task<TReturn> InvokeAsync<TReturn>(Func<Task<TReturn>> func)
+	{
+		Ensure.NotNull(func);
+
+		Task<TReturn> inner = await InvokeAsync<Task<TReturn>>(func).ConfigureAwait(false);
+		return await inner.ConfigureAwait(false);
+	}
+
+	/// <summary>
+	/// Invokes the specified asynchronous function and blocks until the task it returns completes.
+	/// </summary>
+	/// <param name="func">The asynchronous function to invoke.</param>
+	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
+	/// <remarks>
+	/// The function starts on the owner thread, and the caller blocks until its task has completed, not
+	/// just until it reaches its first await. Called on the owner thread, this blocks the owner thread, so
+	/// the function must not wait on anything that needs <see cref="DoInvokes"/> to be pumped; prefer
+	/// <see cref="InvokeAsync(Func{Task})"/> there.
+	/// </remarks>
+	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
+	public void Invoke(Func<Task> func) => InvokeAsync(func).GetAwaiter().GetResult();
+
+	/// <summary>
+	/// Invokes the specified asynchronous function, blocks until the task it returns completes, and returns its result.
+	/// </summary>
+	/// <typeparam name="TReturn">The type of the result.</typeparam>
+	/// <param name="func">The asynchronous function to invoke.</param>
+	/// <returns>The result of the task returned by <paramref name="func"/>.</returns>
+	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
+	/// <remarks>See <see cref="Invoke(Func{Task})"/>.</remarks>
+	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
+	public TReturn Invoke<TReturn>(Func<Task<TReturn>> func) => InvokeAsync(func).GetAwaiter().GetResult();
+
+	/// <summary>
 	/// Attempts to queue an action
 	/// or allocating.
 	/// </summary>
