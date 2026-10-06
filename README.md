@@ -193,13 +193,13 @@ The main class that manages execution of delegates on the intended thread.
 | `BeginInvoke` | `Action action` | `void` | Queues an action to be executed on the owner thread without waiting for completion |
 | `InvokeAsync<T>` | `Func<T> func` | `Task<T>` | Queues a function to be executed on the owner thread and returns a Task that completes with the result |
 | `InvokeAsync` | `Action action` | `Task` | Queues an action to be executed on the owner thread and returns a Task that completes when the action is done |
-| `DoInvokes` | | `void` | Processes all pending invocations (must be called from the owner thread). Always drains both queues; see `BeginInvokeFailed` for how fire-and-forget failures are reported |
+| `DoInvokes` | | `void` | Processes the invocations pending when it is called (must be called from the owner thread). Work queued while it runs waits for the next call; see `BeginInvokeFailed` for how fire-and-forget failures are reported |
 
 #### Events
 
 | Name | Args | Description |
 |------|------|-------------|
-| `BeginInvokeFailed` | `BeginInvokeFailedEventArgs` | Raised on the owner thread, after `DoInvokes` has drained both queues, once per `TryBeginInvoke` action that threw. With no handler attached, `DoInvokes` throws an `AggregateException` of those failures instead |
+| `BeginInvokeFailed` | `BeginInvokeFailedEventArgs` | Raised on the owner thread, after `DoInvokes` has run its pending work, once per `TryBeginInvoke` action that threw. With no handler attached, `DoInvokes` throws an `AggregateException` of those failures instead |
 
 ## Advanced Usage
 

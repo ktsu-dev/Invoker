@@ -204,4 +204,104 @@ public class TryBeginInvokeTests
 		Assert.IsTrue(invokeRan, "Both queues should be drained before the aggregate is thrown.");
 		Assert.IsTrue(worker.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken), "The thread blocked in Invoke should be released.");
 	}
+
+	[TestMethod]
+	public void DoInvokesReturnsWhileProducerKeepsPosting()
+	{
+		const int capacity = 64;
+		Invoker invoker = new(capacity);
+		using ProducerFlood flood = new(invoker);
+
+		bool invokeRan = false;
+		Task worker = Task.Run(() => invoker.Invoke(() => invokeRan = true));
+		SpinWait.SpinUntil(() => !invoker.TaskQueue.IsEmpty, TimeSpan.FromSeconds(5));
+
+		invoker.DoInvokes();
+		bool producerStillRunning = !flood.WatchdogFired;
+
+		Assert.IsTrue(producerStillRunning, "DoInvokes should return while the producer is still posting, not only once it stops.");
+		Assert.IsLessThanOrEqualTo(capacity, flood.Ran, "One pump should run no more actions than were queued when it started.");
+		Assert.IsTrue(invokeRan, "An Invoke pending when the pump started should run in that same pump.");
+		Assert.IsTrue(worker.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken), "The thread blocked in Invoke should be released.");
+	}
+
+	[TestMethod]
+	public void ActionQueuedDuringDoInvokesRunsOnNextPump()
+	{
+		Invoker invoker = new();
+		using ManualResetEventSlim queuedDuringPump = new();
+		bool laterRan = false;
+
+		Thread producer = new(() => invoker.TryBeginInvoke(() =>
+		{
+			Thread poster = new(() => invoker.TryBeginInvoke(() => laterRan = true));
+			poster.Start();
+			poster.Join();
+			queuedDuringPump.Set();
+		}));
+		producer.Start();
+		producer.Join();
+
+		invoker.DoInvokes();
+		Assert.IsTrue(queuedDuringPump.IsSet, "The first action should have run.");
+		Assert.IsFalse(laterRan, "An action queued while the pump is running should wait for the next pump.");
+
+		invoker.DoInvokes();
+		Assert.IsTrue(laterRan, "The action queued during the previous pump should run on this one.");
+	}
+
+	/// <summary>
+	/// A producer thread that posts slow actions with <see cref="Invoker.TryBeginInvoke"/> as fast as it
+	/// can, so the queue refills as quickly as the owner thread drains it. A watchdog stops it after a few
+	/// seconds, so a pump that never returns on its own fails the test instead of hanging it.
+	/// </summary>
+	private sealed class ProducerFlood : IDisposable
+	{
+		private readonly Thread producer;
+		private readonly Timer watchdog;
+		private readonly ManualResetEventSlim filled = new();
+		private int ran;
+		private volatile bool stop;
+		private volatile bool watchdogFired;
+
+		public ProducerFlood(Invoker invoker)
+		{
+			producer = new Thread(() =>
+			{
+				while (!stop)
+				{
+					bool queued = invoker.TryBeginInvoke(() =>
+					{
+						Interlocked.Increment(ref ran);
+						Thread.SpinWait(5000);
+					});
+
+					if (!queued)
+					{
+						filled.Set();
+					}
+				}
+			})
+			{ IsBackground = true };
+			producer.Start();
+			filled.Wait(TimeSpan.FromSeconds(5));
+			watchdog = new Timer(_ =>
+			{
+				watchdogFired = true;
+				stop = true;
+			}, null, TimeSpan.FromSeconds(3), Timeout.InfiniteTimeSpan);
+		}
+
+		public int Ran => Volatile.Read(ref ran);
+
+		public bool WatchdogFired => watchdogFired;
+
+		public void Dispose()
+		{
+			stop = true;
+			watchdog.Dispose();
+			producer.Join();
+			filled.Dispose();
+		}
+	}
 }
