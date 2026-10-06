@@ -27,6 +27,17 @@ public class TryBeginInvokeTests
 	}
 
 	[TestMethod]
+	[DataRow((1 << 30) + 1)]
+	[DataRow(int.MaxValue)]
+	public void CapacityAboveTheMaximumShouldThrowArgumentOutOfRangeException(int capacity)
+	{
+		// Rounding these up to a power of two overflows an int, which surfaced as an
+		// OverflowException from the array allocation instead of the documented argument exception.
+		ArgumentOutOfRangeException exception = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new Invoker(capacity));
+		Assert.AreEqual(capacity, exception.ActualValue);
+	}
+
+	[TestMethod]
 	public void TryBeginInvokeOtherThreadShouldQueueUntilDoInvokes()
 	{
 		Invoker invoker = new();

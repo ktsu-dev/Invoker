@@ -40,6 +40,12 @@ internal sealed class BoundedMpscQueue<T>
 	private long dequeuePos;
 
 	/// <summary>
+	/// The largest capacity the queue accepts: 2^30, the largest power of two an <see cref="int"/>
+	/// can hold. Anything larger would round up past <see cref="int.MaxValue"/>.
+	/// </summary>
+	public const int MaxCapacity = 1 << 30;
+
+	/// <summary>
 	/// Gets the maximum number of elements the queue can hold at once.
 	/// </summary>
 	public int Capacity { get; }
@@ -47,11 +53,12 @@ internal sealed class BoundedMpscQueue<T>
 	/// <summary>
 	/// Initializes a new instance of the <see cref="BoundedMpscQueue{T}"/> class.
 	/// </summary>
-	/// <param name="capacity">The requested capacity; rounded up to the next power of two (minimum 2).</param>
-	/// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="capacity"/> is less than one.</exception>
+	/// <param name="capacity">The requested capacity; rounded up to the next power of two (minimum 2, maximum <see cref="MaxCapacity"/>).</param>
+	/// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="capacity"/> is less than one or greater than <see cref="MaxCapacity"/>.</exception>
 	public BoundedMpscQueue(int capacity)
 	{
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(capacity);
+		ArgumentOutOfRangeException.ThrowIfGreaterThan(capacity, MaxCapacity);
 
 		int size = NextPower2(Math.Max(capacity, 2));
 		buffer = new Cell[size];
