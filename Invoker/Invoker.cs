@@ -25,8 +25,8 @@ using System.Collections.Concurrent;
 /// publish it through a dedicated single-producer/single-consumer ring buffer instead.
 /// </para>
 /// </remarks>
-/// <param name="beginInvokeCapacity">The capacity of the non-blocking <see cref="TryBeginInvoke(Action)"/> queue. Rounded up to the next power of two.</param>
-/// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="beginInvokeCapacity"/> is less than one.</exception>
+/// <param name="beginInvokeCapacity">The capacity of the non-blocking <see cref="TryBeginInvoke(Action)"/> queue. Rounded up to the next power of two. At most 2^30 (1,073,741,824).</param>
+/// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="beginInvokeCapacity"/> is less than one or greater than 2^30.</exception>
 public class Invoker(int beginInvokeCapacity)
 {
 	/// <summary>
