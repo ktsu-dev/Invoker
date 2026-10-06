@@ -270,7 +270,11 @@ public class Invoker(int beginInvokeCapacity)
 
 		for (int i = 0; i < taskBudget && TaskQueue.TryDequeue(out Task? task); i++)
 		{
-			task.RunSynchronously();
+			// The default scheduler always runs the task inline here. With no argument it would be
+			// TaskScheduler.Current, and when DoInvokes is itself called from a task on a scheduler
+			// that refuses to inline, the task was queued back to that scheduler: it ran off the
+			// owner thread, or never ran at all if the owner was that scheduler's only thread.
+			task.RunSynchronously(TaskScheduler.Default);
 		}
 
 		if (failures is null)

@@ -20,6 +20,49 @@ public class InvokerTests
 	}
 
 	[TestMethod]
+	public async Task DoInvokesFromATaskOnANonInliningSchedulerRunsInvokeOnTheOwnerThread()
+	{
+		NonInliningTaskScheduler scheduler = new();
+
+		// The owner loop is itself a task on a scheduler that refuses to inline, so inside it
+		// TaskScheduler.Current is that scheduler rather than the default one.
+		Task<(int OwnerThread, int InvokedThread)> ownerLoop = Task.Factory.StartNew(
+			() =>
+			{
+				Invoker invoker = new();
+				Task<int> caller = Task.Run(() => invoker.Invoke(() => Environment.CurrentManagedThreadId));
+
+				SpinWait.SpinUntil(() => !invoker.TaskQueue.IsEmpty, TimeSpan.FromSeconds(10));
+				invoker.DoInvokes();
+
+				return (Environment.CurrentManagedThreadId, caller.GetAwaiter().GetResult());
+			},
+			CancellationToken.None,
+			TaskCreationOptions.None,
+			scheduler);
+
+		Task finished = await Task.WhenAny(ownerLoop, Task.Delay(TimeSpan.FromSeconds(10))).ConfigureAwait(false);
+		Assert.AreSame(ownerLoop, finished, "Expected DoInvokes to return.");
+
+		(int ownerThread, int invokedThread) = await ownerLoop.ConfigureAwait(false);
+		Assert.AreEqual(ownerThread, invokedThread, "Expected the Invoke delegate to run on the owner thread.");
+	}
+
+	/// <summary>
+	/// Runs each task on the thread pool and never inlines one, like a custom game-loop or actor
+	/// scheduler might.
+	/// </summary>
+	private sealed class NonInliningTaskScheduler : TaskScheduler
+	{
+		protected override IEnumerable<Task>? GetScheduledTasks() => null;
+
+		protected override void QueueTask(Task task) =>
+			ThreadPool.UnsafeQueueUserWorkItem(_ => TryExecuteTask(task), null);
+
+		protected override bool TryExecuteTaskInline(Task task, bool taskWasPreviouslyQueued) => false;
+	}
+
+	[TestMethod]
 	public async Task InvokeAsyncSameThreadShouldInvokeImmediately()
 	{
 		Invoker invoker = new();
