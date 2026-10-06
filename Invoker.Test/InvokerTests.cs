@@ -4,6 +4,7 @@
 
 namespace ktsu.Invoker.Test;
 
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -62,7 +63,7 @@ public class InvokerTests
 	public void InvokeFunctionNullShouldThrowArgumentNullException()
 	{
 		Invoker invoker = new();
-		Assert.ThrowsExactly<ArgumentNullException>(() => invoker.Invoke<int>(null!));
+		Assert.ThrowsExactly<ArgumentNullException>(() => invoker.Invoke((Func<int>)null!));
 	}
 
 	[TestMethod]
@@ -218,5 +219,125 @@ public class InvokerTests
 
 		Assert.IsFalse(ranInsidePump, "Code after the await should not run on the owner thread inside DoInvokes.");
 		Assert.IsTrue(sawDoInvokesReturn, "DoInvokes should return without waiting on the caller's code after the await.");
+	}
+
+	[TestMethod]
+	public void InvokeAsyncAsyncLambdaWaitsForCompletion()
+	{
+		Invoker invoker = new();
+		Stopwatch elapsed = Stopwatch.StartNew();
+		long completedAfter = 0;
+
+		Exception? caught = RunOnWorkerWhilePumping(invoker, () =>
+		{
+			invoker.InvokeAsync(async () => await Task.Delay(200).ConfigureAwait(false)).GetAwaiter().GetResult();
+			completedAfter = elapsed.ElapsedMilliseconds;
+		});
+
+		Assert.IsNull(caught);
+		Assert.IsGreaterThanOrEqualTo(190, completedAfter, "InvokeAsync should not complete before the async lambda has finished.");
+	}
+
+	[TestMethod]
+	public void InvokeAsyncAsyncLambdaPropagatesExceptionAfterFirstAwait()
+	{
+		Invoker invoker = new();
+
+		Exception? caught = RunOnWorkerWhilePumping(invoker, () => invoker.InvokeAsync(async () =>
+		{
+			await Task.Yield();
+			throw new InvalidOperationException("boom");
+		}).GetAwaiter().GetResult());
+
+		Assert.IsNotNull(caught, "An exception thrown after the lambda's first await should reach the caller.");
+		Assert.AreEqual("boom", caught.Message);
+	}
+
+	[TestMethod]
+	public void InvokeAsyncAsyncLambdaReturnsInnerResult()
+	{
+		Invoker invoker = new();
+		int result = 0;
+
+		Exception? caught = RunOnWorkerWhilePumping(invoker, () => result = invoker.InvokeAsync(async () =>
+		{
+			await Task.Yield();
+			return 42;
+		}).GetAwaiter().GetResult());
+
+		Assert.IsNull(caught);
+		Assert.AreEqual(42, result);
+	}
+
+	[TestMethod]
+	public void InvokeAsyncAsyncLambdaOnOwnerThreadWaitsAndPropagates()
+	{
+		// Every call below runs on the thread that created the invoker, so each takes the owner-thread
+		// fast path. Blocking here is safe because nothing in the lambdas needs DoInvokes to be pumped.
+		Invoker invoker = new();
+		bool finished = false;
+
+		invoker.InvokeAsync(async () =>
+		{
+			await Task.Delay(50).ConfigureAwait(false);
+			finished = true;
+		}).GetAwaiter().GetResult();
+		Assert.IsTrue(finished, "On the owner thread, InvokeAsync should still wait for the async lambda to finish.");
+
+		int result = invoker.InvokeAsync(async () =>
+		{
+			await Task.Yield();
+			return 42;
+		}).GetAwaiter().GetResult();
+		Assert.AreEqual(42, result);
+
+		InvalidOperationException e = Assert.ThrowsExactly<InvalidOperationException>(() => invoker.InvokeAsync(async () =>
+		{
+			await Task.Yield();
+			throw new InvalidOperationException("boom");
+		}).GetAwaiter().GetResult());
+		Assert.AreEqual("boom", e.Message);
+	}
+
+	[TestMethod]
+	public void InvokeAsyncLambdaBlocksUntilCompletionAndPropagates()
+	{
+		Invoker invoker = new();
+		bool finished = false;
+		int result = 0;
+
+		Exception? caught = RunOnWorkerWhilePumping(invoker, () =>
+		{
+			invoker.Invoke(async () =>
+			{
+				await Task.Delay(50).ConfigureAwait(false);
+				finished = true;
+			});
+			result = invoker.Invoke(async () =>
+			{
+				await Task.Yield();
+				return 42;
+			});
+			invoker.Invoke(async () =>
+			{
+				await Task.Yield();
+				throw new InvalidOperationException("boom");
+			});
+		});
+
+		Assert.IsTrue(finished, "Invoke should block until the async lambda has finished.");
+		Assert.AreEqual(42, result);
+		Assert.IsNotNull(caught, "Invoke should rethrow an exception thrown after the lambda's first await.");
+		Assert.AreEqual("boom", caught.Message);
+	}
+
+	[TestMethod]
+	public async Task InvokeAsyncAsyncFunctionNullShouldThrowArgumentNullException()
+	{
+		Invoker invoker = new();
+		Func<Task> asyncAction = null!;
+		Func<Task<int>> asyncFunction = null!;
+		await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => invoker.InvokeAsync(asyncAction)).ConfigureAwait(false);
+		await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => invoker.InvokeAsync(asyncFunction)).ConfigureAwait(false);
 	}
 }

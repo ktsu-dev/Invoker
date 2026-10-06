@@ -190,8 +190,12 @@ The main class that manages execution of delegates on the intended thread.
 |------|------------|-------------|-------------|
 | `Invoke<T>` | `Func<T> func` | `T` | Executes the function on the owner thread and returns its result, blocking if called from another thread |
 | `Invoke` | `Action action` | `void` | Executes the action on the owner thread, blocking if called from another thread |
+| `Invoke<T>` | `Func<Task<T>> func` | `T` | Starts the async function on the owner thread and blocks until its task completes, returning the task's result |
+| `Invoke` | `Func<Task> func` | `void` | Starts the async function on the owner thread and blocks until its task completes |
 | `BeginInvoke` | `Action action` | `void` | Queues an action to be executed on the owner thread without waiting for completion |
 | `InvokeAsync<T>` | `Func<T> func` | `Task<T>` | Queues a function to be executed on the owner thread and returns a Task that completes with the result |
+| `InvokeAsync<T>` | `Func<Task<T>> func` | `Task<T>` | Queues an async function to start on the owner thread and returns a Task that completes with the result of the function's task, once that task has completed |
+| `InvokeAsync` | `Func<Task> func` | `Task` | Queues an async function to start on the owner thread and returns a Task that completes when the function's task does, carrying any exception it throws |
 | `InvokeAsync` | `Action action` | `Task` | Queues an action to be executed on the owner thread and returns a Task that completes when the action is done |
 | `DoInvokes` | | `void` | Processes the invocations pending when it is called (must be called from the owner thread). Work queued while it runs waits for the next call; see `BeginInvokeFailed` for how fire-and-forget failures are reported |
 
