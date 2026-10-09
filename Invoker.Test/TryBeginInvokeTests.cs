@@ -217,6 +217,52 @@ public class TryBeginInvokeTests
 	}
 
 	[TestMethod]
+	public void InvokeAsyncThenTryBeginInvokeFromOneThreadRunInSubmissionOrder()
+	{
+		Invoker invoker = new();
+		List<string> order = [];
+		Task? first = null;
+
+		Thread producer = new(() =>
+		{
+			first = invoker.InvokeAsync(() => order.Add("A"));
+			invoker.TryBeginInvoke(() => order.Add("B"));
+		});
+		producer.Start();
+		producer.Join();
+
+		invoker.DoInvokes();
+
+		Assert.IsTrue(first!.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken), "The InvokeAsync task should complete.");
+		Assert.AreEqual("A B", string.Join(' ', order), "Work from one thread should run in the order it was submitted, across both APIs.");
+	}
+
+	[TestMethod]
+	public void InterleavedSubmissionsFromOneThreadRunInSubmissionOrder()
+	{
+		Invoker invoker = new();
+		List<string> order = [];
+		List<Task> tasks = [];
+
+		Thread producer = new(() =>
+		{
+			invoker.TryBeginInvoke(() => order.Add("B1"));
+			tasks.Add(invoker.InvokeAsync(() => order.Add("A1")));
+			tasks.Add(invoker.InvokeAsync(() => order.Add("A2")));
+			invoker.TryBeginInvoke(() => order.Add("B2"));
+			invoker.TryBeginInvoke(() => order.Add("B3"));
+			tasks.Add(invoker.InvokeAsync(() => order.Add("A3")));
+		});
+		producer.Start();
+		producer.Join();
+
+		invoker.DoInvokes();
+
+		Assert.IsTrue(Task.WaitAll([.. tasks], TimeSpan.FromSeconds(5)), "Every InvokeAsync task should complete.");
+		Assert.AreEqual("B1 A1 A2 B2 B3 A3", string.Join(' ', order));
+	}
+
+	[TestMethod]
 	public void DoInvokesReturnsWhileProducerKeepsPosting()
 	{
 		const int capacity = 64;

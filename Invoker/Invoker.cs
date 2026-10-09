@@ -40,14 +40,20 @@ public class Invoker(int beginInvokeCapacity)
 	private int ThreadId { get; } = Environment.CurrentManagedThreadId;
 
 	/// <summary>
-	/// Gets the queue of tasks to be executed.
+	/// The last submission number handed out. Work from both queues carries one, so
+	/// <see cref="DoInvokes"/> can run it in the order it was submitted rather than queue by queue.
 	/// </summary>
-	internal ConcurrentQueue<Task> TaskQueue { get; } = new();
+	private long submissionSequence;
 
 	/// <summary>
-	/// Gets the bounded, lock-free queue backing <see cref="TryBeginInvoke(Action)"/>.
+	/// Gets the queue of tasks to be executed, each with its submission number.
 	/// </summary>
-	private BoundedMpscQueue<Action> BeginInvokeQueue { get; } = new(beginInvokeCapacity);
+	internal ConcurrentQueue<(long Sequence, Task Task)> TaskQueue { get; } = new();
+
+	/// <summary>
+	/// Gets the bounded, lock-free queue backing <see cref="TryBeginInvoke(Action)"/>, each action with its submission number.
+	/// </summary>
+	private BoundedMpscQueue<(long Sequence, Action Action)> BeginInvokeQueue { get; } = new(beginInvokeCapacity);
 
 	/// <summary>
 	/// Initializes a new instance of the <see cref="Invoker"/> class owned by the calling thread, with
@@ -77,7 +83,7 @@ public class Invoker(int beginInvokeCapacity)
 		// RunContinuationsAsynchronously keeps the caller's code after the await off the owner thread:
 		// without it, DoInvokes' RunSynchronously would run that code inline, inside the pump.
 		Task task = new(func, TaskCreationOptions.RunContinuationsAsynchronously);
-		TaskQueue.Enqueue(task);
+		TaskQueue.Enqueue((NextSequence(), task));
 		await task.ConfigureAwait(false);
 	}
 
@@ -108,7 +114,7 @@ public class Invoker(int beginInvokeCapacity)
 
 		// See InvokeAsync(Action): keep the caller's continuation out of DoInvokes.
 		Task<TReturn> task = new(func, TaskCreationOptions.RunContinuationsAsynchronously);
-		TaskQueue.Enqueue(task);
+		TaskQueue.Enqueue((NextSequence(), task));
 		return await task.ConfigureAwait(false);
 	}
 
@@ -183,7 +189,7 @@ public class Invoker(int beginInvokeCapacity)
 	public TReturn Invoke<TReturn>(Func<Task<TReturn>> func) => InvokeAsync(func).GetAwaiter().GetResult();
 
 	/// <summary>
-	/// Attempts to queue an action
+	/// Attempts to queue an action to run on the owner thread without blocking the caller
 	/// or allocating.
 	/// </summary>
 	/// <param name="func">The action to queue.</param>
@@ -197,8 +203,11 @@ public class Invoker(int beginInvokeCapacity)
 	/// Unlike <see cref="Invoke(Action)"/> / <see cref="InvokeAsync(Action)"/>, this method never blocks
 	/// and never allocates a <see cref="Task"/>: the caller is not notified of completion and cannot
 	/// await a result. It is intended for non-real-time producers that want to push work to the owner
-	/// thread cheaply. Queued actions run the next time <see cref="DoInvokes"/> is pumped, in FIFO order;
-	/// an action queued while a pump is already running waits for the pump after it.
+	/// thread cheaply. Queued actions run the next time <see cref="DoInvokes"/> is pumped, in the order
+	/// they were submitted relative to each other and to work queued through <see cref="Invoke(Action)"/>
+	/// and <see cref="InvokeAsync(Action)"/>: a thread that calls <c>InvokeAsync(A)</c> and then
+	/// <c>TryBeginInvoke(B)</c> sees A run before B. An action queued while a pump is already running
+	/// waits for the pump after it.
 	/// When called from the owner thread the action runs synchronously and immediately.
 	/// </remarks>
 	public bool TryBeginInvoke(Action func)
@@ -211,7 +220,7 @@ public class Invoker(int beginInvokeCapacity)
 			return true;
 		}
 
-		return BeginInvokeQueue.TryEnqueue(func);
+		return BeginInvokeQueue.TryEnqueue((NextSequence(), func));
 	}
 
 	/// <summary>
@@ -229,9 +238,9 @@ public class Invoker(int beginInvokeCapacity)
 	/// Executes all queued tasks synchronously on the thread that created the Invoker instance.
 	/// </summary>
 	/// <remarks>
-	/// Each call runs the work that was already queued when it started, from both queues, and then
-	/// returns. Work queued while it runs, including by the actions it runs, waits for the next call,
-	/// so a producer that never stops posting cannot keep one call from returning. Exceptions from
+	/// Each call runs the work that was already queued when it started, from both queues, in the order
+	/// it was submitted, and then returns. Work queued while it runs, including by the actions it runs,
+	/// waits for the next call, so a producer that never stops posting cannot keep one call from returning. Exceptions from
 	/// <see cref="Invoke(Action)"/> and <see cref="InvokeAsync(Action)"/> work go back to their own
 	/// callers. Exceptions from <see cref="TryBeginInvoke(Action)"/> actions are reported through
 	/// <see cref="BeginInvokeFailed"/> once that work has run.
@@ -256,25 +265,36 @@ public class Invoker(int beginInvokeCapacity)
 		// rather than let it abort the pump: an escaping exception would skip the rest of both
 		// queues and leave every thread blocked in Invoke waiting for a pump that may never come.
 		List<Exception>? failures = null;
-		for (int i = 0; i < beginInvokeBudget && BeginInvokeQueue.TryDequeue(out Action? action); i++)
-		{
-			try
-			{
-				action!();
-			}
-			catch (Exception ex)
-			{
-				(failures ??= []).Add(ex);
-			}
-		}
 
-		for (int i = 0; i < taskBudget && TaskQueue.TryDequeue(out Task? task); i++)
+		// Merge the two queues by submission number. Each queue is FIFO, and a thread takes its
+		// number before it enqueues, so taking the lower-numbered head each time runs one thread's
+		// work in the order that thread submitted it, whichever API it went through.
+		bool haveAction = TryTakeAction(ref beginInvokeBudget, out (long Sequence, Action Action) nextAction);
+		bool haveTask = TryTakeTask(ref taskBudget, out (long Sequence, Task Task) nextTask);
+		while (haveAction || haveTask)
 		{
-			// The default scheduler always runs the task inline here. With no argument it would be
-			// TaskScheduler.Current, and when DoInvokes is itself called from a task on a scheduler
-			// that refuses to inline, the task was queued back to that scheduler: it ran off the
-			// owner thread, or never ran at all if the owner was that scheduler's only thread.
-			task.RunSynchronously(TaskScheduler.Default);
+			if (haveAction && (!haveTask || nextAction.Sequence < nextTask.Sequence))
+			{
+				try
+				{
+					nextAction.Action();
+				}
+				catch (Exception ex)
+				{
+					(failures ??= []).Add(ex);
+				}
+
+				haveAction = TryTakeAction(ref beginInvokeBudget, out nextAction);
+			}
+			else
+			{
+				// The default scheduler always runs the task inline here. With no argument it would be
+				// TaskScheduler.Current, and when DoInvokes is itself called from a task on a scheduler
+				// that refuses to inline, the task was queued back to that scheduler: it ran off the
+				// owner thread, or never ran at all if the owner was that scheduler's only thread.
+				nextTask.Task.RunSynchronously(TaskScheduler.Default);
+				haveTask = TryTakeTask(ref taskBudget, out nextTask);
+			}
 		}
 
 		if (failures is null)
@@ -291,5 +311,40 @@ public class Invoker(int beginInvokeCapacity)
 		{
 			BeginInvokeFailed?.Invoke(this, new BeginInvokeFailedEventArgs(failure));
 		}
+	}
+
+	/// <summary>
+	/// Hands out the next submission number.
+	/// </summary>
+	private long NextSequence() => Interlocked.Increment(ref submissionSequence);
+
+	/// <summary>
+	/// Dequeues the next <see cref="TryBeginInvoke(Action)"/> action, if the pump's budget allows one.
+	/// </summary>
+	private bool TryTakeAction(ref int budget, out (long Sequence, Action Action) item)
+	{
+		if (budget > 0 && BeginInvokeQueue.TryDequeue(out item))
+		{
+			budget--;
+			return true;
+		}
+
+		item = default;
+		return false;
+	}
+
+	/// <summary>
+	/// Dequeues the next <see cref="Invoke(Action)"/> or <see cref="InvokeAsync(Action)"/> task, if the pump's budget allows one.
+	/// </summary>
+	private bool TryTakeTask(ref int budget, out (long Sequence, Task Task) item)
+	{
+		if (budget > 0 && TaskQueue.TryDequeue(out item))
+		{
+			budget--;
+			return true;
+		}
+
+		item = default;
+		return false;
 	}
 }

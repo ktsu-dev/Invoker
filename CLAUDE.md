@@ -17,7 +17,8 @@ ktsu.Invoker is a .NET library for thread-safe delegate execution, designed for 
 The library consists of a single class `Invoker` in `Invoker/Invoker.cs`:
 
 - Created on an "owner thread" and captures that thread's ID
-- Maintains a `ConcurrentQueue<Task>` for cross-thread invocations
+- Maintains a `ConcurrentQueue` of tasks for `Invoke`/`InvokeAsync` and a bounded lock-free queue of actions for `TryBeginInvoke`
+- Stamps every queued item with a shared submission number, and `DoInvokes()` merges the two queues by it, so work runs in submission order across both APIs
 - When `Invoke`/`InvokeAsync` is called from the owner thread, executes immediately
 - When called from other threads, queues the task and blocks/awaits until `DoInvokes()` processes it
 - `DoInvokes()` must be called on the owner thread (typically in a main loop) to process queued tasks
