@@ -1,6 +1,6 @@
-## v1.4.3-pre.2 (prerelease)
+## v1.4.3 (patch)
 
-Changes since v1.4.3-pre.1:
+Changes since v1.4.2:
 
-- Bump MSTest.Sdk from 4.4.1 to 4.5.1 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Run InvokeAsync and TryBeginInvoke work in submission order [patch] ([@Claude](https://github.com/Claude))
 
