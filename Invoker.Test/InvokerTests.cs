@@ -383,4 +383,19 @@ public class InvokerTests
 		await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => invoker.InvokeAsync(asyncAction)).ConfigureAwait(false);
 		await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => invoker.InvokeAsync(asyncFunction)).ConfigureAwait(false);
 	}
+
+	[TestMethod]
+	public void InvokeAsyncNullThrowsAtTheCallSiteWithoutAwaiting()
+	{
+		// Fire-and-forget callers never await, so a null must throw from the call itself, not fault the task.
+		Invoker invoker = new();
+		Action action = null!;
+		Func<int> function = null!;
+		Func<Task> asyncAction = null!;
+		Func<Task<int>> asyncFunction = null!;
+		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeAsync(action));
+		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeAsync(function));
+		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeAsync(asyncAction));
+		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeAsync(asyncFunction));
+	}
 }
