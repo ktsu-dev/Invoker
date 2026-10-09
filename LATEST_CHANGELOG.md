@@ -1,6 +1,6 @@
-## v1.4.3 (patch)
+## v1.4.4 (patch)
 
-Changes since v1.4.2:
+Changes since v1.4.3:
 
-- Run InvokeAsync and TryBeginInvoke work in submission order [patch] ([@Claude](https://github.com/Claude))
+- Throw ArgumentNullException from InvokeAsync at the call site [patch] ([@Claude](https://github.com/Claude))
 
