@@ -70,10 +70,15 @@ public class Invoker(int beginInvokeCapacity)
 	/// <param name="func">The action to invoke.</param>
 	/// <returns>A task that represents the asynchronous operation.</returns>
 	/// <exception cref="ArgumentNullException">Thrown when the action is null.</exception>
-	public async Task InvokeAsync(Action func)
+	// Validation runs before the async core so a null argument throws at the call site, not into the task.
+	public Task InvokeAsync(Action func)
 	{
 		Ensure.NotNull(func);
+		return InvokeCoreAsync(func);
+	}
 
+	private async Task InvokeCoreAsync(Action func)
+	{
 		if (ThreadId == Environment.CurrentManagedThreadId)
 		{
 			func();
@@ -103,10 +108,14 @@ public class Invoker(int beginInvokeCapacity)
 	/// <param name="func">The function to invoke.</param>
 	/// <returns>A task that represents the asynchronous operation, containing the result of the function.</returns>
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
-	public async Task<TReturn> InvokeAsync<TReturn>(Func<TReturn> func)
+	public Task<TReturn> InvokeAsync<TReturn>(Func<TReturn> func)
 	{
 		Ensure.NotNull(func);
+		return InvokeCoreAsync(func);
+	}
 
+	private async Task<TReturn> InvokeCoreAsync<TReturn>(Func<TReturn> func)
+	{
 		if (ThreadId == Environment.CurrentManagedThreadId)
 		{
 			return func();
@@ -139,11 +148,15 @@ public class Invoker(int beginInvokeCapacity)
 	/// <see cref="InvokeAsync{TReturn}(Func{TReturn})"/>, whose task completes at the lambda's first
 	/// incomplete await and never surfaces an exception thrown after it.
 	/// </remarks>
-	public async Task InvokeAsync(Func<Task> func)
+	public Task InvokeAsync(Func<Task> func)
 	{
 		Ensure.NotNull(func);
+		return InvokeAndAwaitCoreAsync(func);
+	}
 
-		Task inner = await InvokeAsync<Task>(func).ConfigureAwait(false);
+	private async Task InvokeAndAwaitCoreAsync(Func<Task> func)
+	{
+		Task inner = await InvokeCoreAsync<Task>(func).ConfigureAwait(false);
 		await inner.ConfigureAwait(false);
 	}
 
@@ -155,11 +168,15 @@ public class Invoker(int beginInvokeCapacity)
 	/// <returns>A task that completes with the result of the task returned by <paramref name="func"/>.</returns>
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	/// <remarks>See <see cref="InvokeAsync(Func{Task})"/>.</remarks>
-	public async Task<TReturn> InvokeAsync<TReturn>(Func<Task<TReturn>> func)
+	public Task<TReturn> InvokeAsync<TReturn>(Func<Task<TReturn>> func)
 	{
 		Ensure.NotNull(func);
+		return InvokeAndAwaitCoreAsync(func);
+	}
 
-		Task<TReturn> inner = await InvokeAsync<Task<TReturn>>(func).ConfigureAwait(false);
+	private async Task<TReturn> InvokeAndAwaitCoreAsync<TReturn>(Func<Task<TReturn>> func)
+	{
+		Task<TReturn> inner = await InvokeCoreAsync<Task<TReturn>>(func).ConfigureAwait(false);
 		return await inner.ConfigureAwait(false);
 	}
 
