@@ -2,167 +2,167 @@
 
 Changes since v1.4.4:
 
-- Bump Polyfill from 11.4.3 to 11.4.5 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump Polyfill from 11.4.3 to 11.4.5 (dependabot[bot])
 
 ## v1.4.4 (patch)
 
 Changes since v1.4.3:
 
-- Throw ArgumentNullException from InvokeAsync at the call site [patch] ([@Claude](https://github.com/Claude))
+- Throw ArgumentNullException from InvokeAsync at the call site [patch] (Claude)
 
 ## v1.4.3 (patch)
 
 Changes since v1.4.2:
 
-- Run InvokeAsync and TryBeginInvoke work in submission order [patch] ([@Claude](https://github.com/Claude))
+- Run InvokeAsync and TryBeginInvoke work in submission order [patch] (Claude)
 
 ## v1.4.3-pre.2 (prerelease)
 
 Changes since v1.4.3-pre.1:
 
-- Bump MSTest.Sdk from 4.4.1 to 4.5.1 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump MSTest.Sdk from 4.4.1 to 4.5.1 (dependabot[bot])
 
 ## v1.4.3-pre.1 (prerelease)
 
 Changes since v1.4.2:
 
-- Bump Polyfill from 11.4.2 to 11.4.3 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump Polyfill from 11.4.2 to 11.4.3 (dependabot[bot])
 
 ## v1.4.2 (patch)
 
 Changes since v1.4.1:
 
-- [patch] Run queued Invoke/InvokeAsync work on the default scheduler, so it stays on the owner thread ([@matt-edmondson](https://github.com/matt-edmondson))
-- [patch] Reject a TryBeginInvoke capacity above 2^30 with ArgumentOutOfRangeException ([@matt-edmondson](https://github.com/matt-edmondson))
-- Wait for the task an async delegate returns in Invoke/InvokeAsync ([@matt-edmondson](https://github.com/matt-edmondson))
-- Keep the DoInvokes comments next to the code they describe ([@matt-edmondson](https://github.com/matt-edmondson))
-- Run only the work queued when DoInvokes starts ([@matt-edmondson](https://github.com/matt-edmondson))
+- [patch] Run queued Invoke/InvokeAsync work on the default scheduler, so it stays on the owner thread (matt-edmondson)
+- [patch] Reject a TryBeginInvoke capacity above 2^30 with ArgumentOutOfRangeException (matt-edmondson)
+- Wait for the task an async delegate returns in Invoke/InvokeAsync (matt-edmondson)
+- Keep the DoInvokes comments next to the code they describe (matt-edmondson)
+- Run only the work queued when DoInvokes starts (matt-edmondson)
 
 ## v1.4.2-pre.1 (prerelease)
 
 Changes since v1.4.1:
 
-- Bump Polyfill from 11.4.1 to 11.4.2 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump Polyfill from 11.4.1 to 11.4.2 (dependabot[bot])
 
 ## v1.4.1 (patch)
 
 Changes since v1.4.0:
 
-- Move CI onto the shared ci-shared.yml pipeline ([@Claude](https://github.com/Claude))
+- Move CI onto the shared ci-shared.yml pipeline (Claude)
 
 ## v1.4.0 (minor)
 
 Changes since v1.3.0:
 
-- Raise BeginInvokeFailed directly so analyzers see it used ([@matt-edmondson](https://github.com/matt-edmondson))
-- [patch] Run InvokeAsync continuations off the owner thread ([@matt-edmondson](https://github.com/matt-edmondson))
-- [minor] Keep DoInvokes draining when a TryBeginInvoke action throws ([@matt-edmondson](https://github.com/matt-edmondson))
+- Raise BeginInvokeFailed directly so analyzers see it used (matt-edmondson)
+- [patch] Run InvokeAsync continuations off the owner thread (matt-edmondson)
+- [minor] Keep DoInvokes draining when a TryBeginInvoke action throws (matt-edmondson)
 
 ## v1.3.1-pre.1 (prerelease)
 
 Changes since v1.3.0:
 
-- Bump Polyfill from 11.4.0 to 11.4.1 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump Polyfill from 11.4.0 to 11.4.1 (dependabot[bot])
 
 ## v1.3.0 (minor)
 
 Changes since v1.2.0:
 
-- Keep the failing delegate's stack trace when Invoke rethrows ([@Claude](https://github.com/Claude))
-- Join paths instead of combining them in ProjectNamingTests ([@Claude](https://github.com/Claude))
-- [patch] Rename the Sample project to Invoker.Demo ([@Claude](https://github.com/Claude))
-- Gate Dependabot auto-merge on CI actually being green ([@Claude](https://github.com/Claude))
-- ci: hold the blocking quality gate at the release, not at every pull request [patch] ([@Claude](https://github.com/Claude))
-- ci: adopt the consolidated .NET workflow [patch] ([@Claude](https://github.com/Claude))
-- ci: make the SonarQube quality gate opt in [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- ci: adopt the unified dotnet workflow [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- chore: store icon.png in LFS as .gitattributes declares ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: scope build badge to the default branch ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: correct README, DESCRIPTION and TAGS metadata ([@matt-edmondson](https://github.com/matt-edmondson))
-- Fix build against ktsu.Sdk 2.27.0 ([@matt-edmondson](https://github.com/matt-edmondson))
-- Stop Update SDKs failing when there is nothing to update ([@matt-edmondson](https://github.com/matt-edmondson))
-- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
-- Sync .editorconfig ([@KtsuTools](https://github.com/KtsuTools))
-- Sync global.json ([@KtsuTools](https://github.com/KtsuTools))
-- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
-- chore: update ktsu.Sdk to 2.21.1 [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- chore: remove unused SourceLink package versions ([@matt-edmondson](https://github.com/matt-edmondson))
-- chore: remove SourceLink package references from projects ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update compatibility suppressions ([@matt-edmondson](https://github.com/matt-edmondson))
+- Keep the failing delegate's stack trace when Invoke rethrows (Claude)
+- Join paths instead of combining them in ProjectNamingTests (Claude)
+- [patch] Rename the Sample project to Invoker.Demo (Claude)
+- Gate Dependabot auto-merge on CI actually being green (Claude)
+- ci: hold the blocking quality gate at the release, not at every pull request [patch] (Claude)
+- ci: adopt the consolidated .NET workflow [patch] (Claude)
+- ci: make the SonarQube quality gate opt in [patch] (matt-edmondson)
+- ci: adopt the unified dotnet workflow [patch] (matt-edmondson)
+- chore: store icon.png in LFS as .gitattributes declares (matt-edmondson)
+- docs: scope build badge to the default branch (matt-edmondson)
+- docs: correct README, DESCRIPTION and TAGS metadata (matt-edmondson)
+- Fix build against ktsu.Sdk 2.27.0 (matt-edmondson)
+- Stop Update SDKs failing when there is nothing to update (matt-edmondson)
+- Sync .github\workflows\dotnet.yml (KtsuTools)
+- Sync .editorconfig (KtsuTools)
+- Sync global.json (KtsuTools)
+- Sync .github\workflows\dotnet.yml (KtsuTools)
+- chore: update ktsu.Sdk to 2.21.1 [patch] (matt-edmondson)
+- chore: remove unused SourceLink package versions (matt-edmondson)
+- chore: remove SourceLink package references from projects (matt-edmondson)
+- Update compatibility suppressions (matt-edmondson)
 
 ## v1.2.38 (patch)
 
 Changes since v1.2.37:
 
-- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
 ## v1.2.37 (patch)
 
 Changes since v1.2.36:
 
-- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
 ## v1.2.36 (patch)
 
 Changes since v1.2.35:
 
-- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
 ## v1.2.35 (patch)
 
 Changes since v1.2.34:
 
-- Join paths instead of combining them in ProjectNamingTests ([@Claude](https://github.com/Claude))
-- [patch] Rename the Sample project to Invoker.Demo ([@Claude](https://github.com/Claude))
+- Join paths instead of combining them in ProjectNamingTests (Claude)
+- [patch] Rename the Sample project to Invoker.Demo (Claude)
 
 ## v1.2.34 (patch)
 
 Changes since v1.2.33:
 
-- Bump Polyfill from 11.3.0 to 11.4.0 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump Polyfill from 11.3.0 to 11.4.0 (dependabot[bot])
 
 ## v1.2.33 (patch)
 
 Changes since v1.2.32:
 
-- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
 ## v1.2.32 (patch)
 
 Changes since v1.2.31:
 
-- Bump MSTest.Sdk from 4.4.0 to 4.4.1 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump MSTest.Sdk from 4.4.0 to 4.4.1 (dependabot[bot])
 
 ## v1.2.31 (patch)
 
 Changes since v1.2.30:
 
-- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
 ## v1.2.30 (patch)
 
 Changes since v1.2.29:
 
-- Gate Dependabot auto-merge on CI actually being green ([@Claude](https://github.com/Claude))
+- Gate Dependabot auto-merge on CI actually being green (Claude)
 
 ## v1.2.29 (patch)
 
 Changes since v1.2.28:
 
-- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
 ## v1.2.28 (patch)
 
 Changes since v1.2.27:
 
-- ci: hold the blocking quality gate at the release, not at every pull request [patch] ([@Claude](https://github.com/Claude))
-- ci: adopt the consolidated .NET workflow [patch] ([@Claude](https://github.com/Claude))
+- ci: hold the blocking quality gate at the release, not at every pull request [patch] (Claude)
+- ci: adopt the consolidated .NET workflow [patch] (Claude)
 
 ## v1.2.27 (patch)
 
 Changes since v1.2.26:
 
-- Bump Polyfill from 11.2.0 to 11.3.0 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump Polyfill from 11.2.0 to 11.3.0 (dependabot[bot])
 
 ## v1.2.26 (patch)
 
@@ -172,408 +172,408 @@ No significant changes detected since v1.2.25.
 
 Changes since v1.2.24:
 
-- ci: make the SonarQube quality gate opt in [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- ci: adopt the unified dotnet workflow [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- ci: make the SonarQube quality gate opt in [patch] (matt-edmondson)
+- ci: adopt the unified dotnet workflow [patch] (matt-edmondson)
 
 ## v1.2.24 (patch)
 
 Changes since v1.2.23:
 
-- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
 ## v1.2.23 (patch)
 
 Changes since v1.2.22:
 
-- Bump the ktsu group with 9 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
 ## v1.2.22 (patch)
 
 Changes since v1.2.21:
 
-- chore: store icon.png in LFS as .gitattributes declares ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: scope build badge to the default branch ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: correct README, DESCRIPTION and TAGS metadata ([@matt-edmondson](https://github.com/matt-edmondson))
+- chore: store icon.png in LFS as .gitattributes declares (matt-edmondson)
+- docs: scope build badge to the default branch (matt-edmondson)
+- docs: correct README, DESCRIPTION and TAGS metadata (matt-edmondson)
 
 ## v1.2.21 (patch)
 
 Changes since v1.2.20:
 
-- Fix build against ktsu.Sdk 2.27.0 ([@matt-edmondson](https://github.com/matt-edmondson))
-- Stop Update SDKs failing when there is nothing to update ([@matt-edmondson](https://github.com/matt-edmondson))
-- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
-- Sync .editorconfig ([@KtsuTools](https://github.com/KtsuTools))
-- Sync global.json ([@KtsuTools](https://github.com/KtsuTools))
-- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
+- Fix build against ktsu.Sdk 2.27.0 (matt-edmondson)
+- Stop Update SDKs failing when there is nothing to update (matt-edmondson)
+- Sync .github\workflows\dotnet.yml (KtsuTools)
+- Sync .editorconfig (KtsuTools)
+- Sync global.json (KtsuTools)
+- Sync .github\workflows\dotnet.yml (KtsuTools)
 
 ## v1.2.20 (patch)
 
 Changes since v1.2.19:
 
-- chore: update ktsu.Sdk to 2.21.1 [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- chore: update ktsu.Sdk to 2.21.1 [patch] (matt-edmondson)
 
 ## v1.2.19 (patch)
 
 Changes since v1.2.18:
 
-- Bump Polyfill from 11.0.1 to 11.0.2 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump Polyfill from 11.0.1 to 11.0.2 (dependabot[bot])
 
 ## v1.2.18 (patch)
 
 Changes since v1.2.17:
 
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync global.json (ktsu[bot])
 
 ## v1.2.17 (patch)
 
 Changes since v1.2.16:
 
-- Sync .github\workflows\update-sdks.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dependabot-merge.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .gitattributes ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\update-sdks.yml (ktsu[bot])
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync .github\workflows\dependabot-merge.yml (ktsu[bot])
+- Sync .gitattributes (ktsu[bot])
 
 ## v1.2.16 (patch)
 
 Changes since v1.2.15:
 
-- Bump MSTest.Sdk from 4.3.2 to 4.3.3 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump MSTest.Sdk from 4.3.2 to 4.3.3 (dependabot[bot])
 
 ## v1.2.15 (patch)
 
 Changes since v1.2.14:
 
-- Bump the ktsu group with 8 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 8 updates (dependabot[bot])
 
 ## v1.2.14 (patch)
 
 Changes since v1.2.13:
 
-- Bump Polyfill from 10.11.2 to 11.0.1 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump Polyfill from 10.11.2 to 11.0.1 (dependabot[bot])
 
 ## v1.2.13 (patch)
 
 Changes since v1.2.12:
 
-- Bump MSTest.Sdk from 4.3.0 to 4.3.2 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump MSTest.Sdk from 4.3.0 to 4.3.2 (dependabot[bot])
 
 ## v1.2.12 (patch)
 
 Changes since v1.2.11:
 
-- Bump MSTest.Sdk from 4.2.3 to 4.3.0 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump MSTest.Sdk from 4.2.3 to 4.3.0 (dependabot[bot])
 
 ## v1.2.11 (patch)
 
 Changes since v1.2.10:
 
-- Bump the ktsu group with 8 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 8 updates (dependabot[bot])
 
 ## v1.2.10 (patch)
 
 Changes since v1.2.9:
 
-- Bump Polyfill from 10.11.1 to 10.11.2 ([@dependabot[bot]](https://github.com/dependabot[bot]))
-- Bump the ktsu group with 8 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump Polyfill from 10.11.1 to 10.11.2 (dependabot[bot])
+- Bump the ktsu group with 8 updates (dependabot[bot])
 
 ## v1.2.9 (patch)
 
 Changes since v1.2.8:
 
-- Bump Polyfill from 10.11.0 to 10.11.1 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump Polyfill from 10.11.0 to 10.11.1 (dependabot[bot])
 
 ## v1.2.8 (patch)
 
 Changes since v1.2.7:
 
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync global.json (ktsu[bot])
 
 ## v1.2.7 (patch)
 
 Changes since v1.2.6:
 
-- chore: remove unused SourceLink package versions ([@matt-edmondson](https://github.com/matt-edmondson))
-- chore: remove SourceLink package references from projects ([@matt-edmondson](https://github.com/matt-edmondson))
+- chore: remove unused SourceLink package versions (matt-edmondson)
+- chore: remove SourceLink package references from projects (matt-edmondson)
 
 ## v1.2.6 (patch)
 
 Changes since v1.2.5:
 
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\dependabot.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync icon.png ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .gitignore ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .gitattributes ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Bump Polyfill from 10.10.0 to 10.11.0 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync .github\dependabot.yml (ktsu[bot])
+- Sync icon.png (ktsu[bot])
+- Sync .gitignore (ktsu[bot])
+- Sync .gitattributes (ktsu[bot])
+- Sync global.json (ktsu[bot])
+- Bump Polyfill from 10.10.0 to 10.11.0 (dependabot[bot])
 
 ## v1.2.5 (patch)
 
 Changes since v1.2.4:
 
-- Bump the ktsu group with 8 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 8 updates (dependabot[bot])
 
 ## v1.2.4 (patch)
 
 Changes since v1.2.3:
 
-- Bump Polyfill from 10.8.1 to 10.10.0 ([@dependabot[bot]](https://github.com/dependabot[bot]))
-- Bump the ktsu group with 8 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump Polyfill from 10.8.1 to 10.10.0 (dependabot[bot])
+- Bump the ktsu group with 8 updates (dependabot[bot])
 
 ## v1.2.3 (patch)
 
 Changes since v1.2.2:
 
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync global.json (ktsu[bot])
 
 ## v1.2.2 (patch)
 
 Changes since v1.2.1:
 
-- Sync .github\workflows\update-sdks.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\dependabot.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .gitignore ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .gitattributes ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\update-sdks.yml (ktsu[bot])
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync .github\dependabot.yml (ktsu[bot])
+- Sync .gitignore (ktsu[bot])
+- Sync .gitattributes (ktsu[bot])
+- Sync global.json (ktsu[bot])
 
 ## v1.2.1 (patch)
 
 Changes since v1.2.0:
 
-- Update compatibility suppressions ([@matt-edmondson](https://github.com/matt-edmondson))
+- Update compatibility suppressions (matt-edmondson)
 
 ## v1.2.0 (minor)
 
 Changes since v1.1.0:
 
-- Update exception handling and method XML docs ([@matt-edmondson](https://github.com/matt-edmondson))
-- Use a primary constructor in Invoker ([@Claude](https://github.com/Claude))
-- Add non-blocking TryBeginInvoke and clarify threading model ([@Claude](https://github.com/Claude))
-- Add TAGS.md with NuGet package tags ([@matt-edmondson](https://github.com/matt-edmondson))
-- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
-- Remove legacy build scripts ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove .github\workflows\project.yml ([@matt-edmondson](https://github.com/matt-edmondson))
-- migrate to dotnet 10 ([@matt-edmondson](https://github.com/matt-edmondson))
-- migrate to dotnet 10 ([@matt-edmondson](https://github.com/matt-edmondson))
-- Refactor asynchronous task execution in InvokerTests to use Thread instead of Task.Run, ensuring tasks are queued correctly before assertions. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Refactor project files and configurations for .NET 9 compatibility. Update indentation settings in .editorconfig, adjust .gitattributes and .gitignore for consistency, and remove deprecated polyfill code. Enhance Invoker class methods with Guard checks for null arguments. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Enhance .NET workflow with manual trigger support, update build steps for SonarQube integration, and improve error handling in PSBuild scripts. Adjust project files for .NET 9 compatibility and refine test cases for better exception handling. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update configuration files and scripts for improved build and test processes ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove Directory.Build.props and Directory.Build.targets files, delete unused PowerShell scripts, and add copyright headers to Invoker and InvokerTests classes. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update project metadata and enhance documentation with detailed features and usage examples for the ktsu.Invoker library. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Update exception handling and method XML docs (matt-edmondson)
+- Use a primary constructor in Invoker (Claude)
+- Add non-blocking TryBeginInvoke and clarify threading model (Claude)
+- Add TAGS.md with NuGet package tags (matt-edmondson)
+- Sync .github\workflows\dotnet.yml (KtsuTools)
+- Remove legacy build scripts (matt-edmondson)
+- Remove .github\workflows\project.yml (matt-edmondson)
+- migrate to dotnet 10 (matt-edmondson)
+- migrate to dotnet 10 (matt-edmondson)
+- Refactor asynchronous task execution in InvokerTests to use Thread instead of Task.Run, ensuring tasks are queued correctly before assertions. (matt-edmondson)
+- Refactor project files and configurations for .NET 9 compatibility. Update indentation settings in .editorconfig, adjust .gitattributes and .gitignore for consistency, and remove deprecated polyfill code. Enhance Invoker class methods with Guard checks for null arguments. (matt-edmondson)
+- Enhance .NET workflow with manual trigger support, update build steps for SonarQube integration, and improve error handling in PSBuild scripts. Adjust project files for .NET 9 compatibility and refine test cases for better exception handling. (matt-edmondson)
+- Update configuration files and scripts for improved build and test processes (matt-edmondson)
+- Remove Directory.Build.props and Directory.Build.targets files, delete unused PowerShell scripts, and add copyright headers to Invoker and InvokerTests classes. (matt-edmondson)
+- Update project metadata and enhance documentation with detailed features and usage examples for the ktsu.Invoker library. (matt-edmondson)
 
 ## v1.1.7-pre.1 (prerelease)
 
 Changes since v1.1.6:
 
-- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
+- Sync .github\workflows\dotnet.yml (KtsuTools)
 
 ## v1.1.6 (patch)
 
 Changes since v1.1.5:
 
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
 
 ## v1.1.6-pre.1 (prerelease)
 
 Changes since v1.1.5:
 
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
 
 ## v1.1.5 (patch)
 
 Changes since v1.1.4:
 
-- Remove legacy build scripts ([@matt-edmondson](https://github.com/matt-edmondson))
+- Remove legacy build scripts (matt-edmondson)
 
 ## v1.1.4 (patch)
 
 Changes since v1.1.3:
 
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\update-winget-manifests.ps1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\update-winget-manifests.ps1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync COPYRIGHT.md ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\update-winget-manifests.ps1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync COPYRIGHT.md ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync global.json (ktsu[bot])
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync scripts\update-winget-manifests.ps1 (ktsu[bot])
+- Sync scripts\update-winget-manifests.ps1 (ktsu[bot])
+- Sync scripts\PSBuild.psm1 (ktsu[bot])
+- Sync global.json (ktsu[bot])
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync scripts\PSBuild.psm1 (ktsu[bot])
+- Sync scripts\PSBuild.psm1 (ktsu[bot])
+- Sync global.json (ktsu[bot])
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync global.json (ktsu[bot])
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync global.json (ktsu[bot])
+- Sync COPYRIGHT.md (ktsu[bot])
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync scripts\PSBuild.psm1 (ktsu[bot])
+- Sync scripts\update-winget-manifests.ps1 (ktsu[bot])
+- Sync global.json (ktsu[bot])
+- Sync COPYRIGHT.md (ktsu[bot])
 
 ## v1.1.4-pre.7 (prerelease)
 
 Changes since v1.1.4-pre.6:
 
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\update-winget-manifests.ps1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync scripts\update-winget-manifests.ps1 (ktsu[bot])
 
 ## v1.1.4-pre.6 (prerelease)
 
 Changes since v1.1.4-pre.5:
 
-- Sync scripts\update-winget-manifests.ps1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync scripts\update-winget-manifests.ps1 (ktsu[bot])
+- Sync scripts\PSBuild.psm1 (ktsu[bot])
+- Sync global.json (ktsu[bot])
 
 ## v1.1.4-pre.5 (prerelease)
 
 Changes since v1.1.4-pre.4:
 
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync scripts\PSBuild.psm1 (ktsu[bot])
+- Sync scripts\PSBuild.psm1 (ktsu[bot])
+- Sync global.json (ktsu[bot])
 
 ## v1.1.4-pre.4 (prerelease)
 
 Changes since v1.1.4-pre.3:
 
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync global.json (ktsu[bot])
 
 ## v1.1.4-pre.3 (prerelease)
 
 Changes since v1.1.4-pre.2:
 
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync COPYRIGHT.md ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync global.json (ktsu[bot])
+- Sync COPYRIGHT.md (ktsu[bot])
 
 ## v1.1.4-pre.2 (prerelease)
 
 Changes since v1.1.4-pre.1:
 
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync scripts\PSBuild.psm1 (ktsu[bot])
 
 ## v1.1.4-pre.1 (prerelease)
 
 Changes since v1.1.3:
 
-- Sync scripts\update-winget-manifests.ps1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync COPYRIGHT.md ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync scripts\update-winget-manifests.ps1 (ktsu[bot])
+- Sync global.json (ktsu[bot])
+- Sync COPYRIGHT.md (ktsu[bot])
 
 ## v1.1.3 (patch)
 
 Changes since v1.1.2:
 
-- Remove .github\workflows\project.yml ([@matt-edmondson](https://github.com/matt-edmondson))
+- Remove .github\workflows\project.yml (matt-edmondson)
 
 ## v1.1.3-pre.1 (prerelease)
 
 Changes since v1.1.2:
 
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .gitignore ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync global.json (ktsu[bot])
+- Merge remote-tracking branch 'refs/remotes/origin/main' (ktsu[bot])
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync .gitignore (ktsu[bot])
 
 ## v1.1.2 (patch)
 
 Changes since v1.1.1:
 
-- migrate to dotnet 10 ([@matt-edmondson](https://github.com/matt-edmondson))
-- migrate to dotnet 10 ([@matt-edmondson](https://github.com/matt-edmondson))
+- migrate to dotnet 10 (matt-edmondson)
+- migrate to dotnet 10 (matt-edmondson)
 
 ## v1.1.2-pre.4 (prerelease)
 
 Changes since v1.1.2-pre.3:
 
-- Sync scripts\update-winget-manifests.ps1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync scripts\update-winget-manifests.ps1 (ktsu[bot])
 
 ## v1.1.2-pre.3 (prerelease)
 
 Changes since v1.1.2-pre.2:
 
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
 
 ## v1.1.2-pre.2 (prerelease)
 
 Changes since v1.1.2-pre.1:
 
-- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync scripts\PSBuild.psm1 (ktsu[bot])
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
 
 ## v1.1.2-pre.1 (prerelease)
 
 Changes since v1.1.1:
 
-- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\update-winget-manifests.ps1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .editorconfig ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .gitignore ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .runsettings ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync scripts\PSBuild.psm1 (ktsu[bot])
+- Sync scripts\update-winget-manifests.ps1 (ktsu[bot])
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync .editorconfig (ktsu[bot])
+- Sync .gitignore (ktsu[bot])
+- Sync .runsettings (ktsu[bot])
 
 ## v1.1.1 (patch)
 
 Changes since v1.1.0:
 
-- Refactor asynchronous task execution in InvokerTests to use Thread instead of Task.Run, ensuring tasks are queued correctly before assertions. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Refactor project files and configurations for .NET 9 compatibility. Update indentation settings in .editorconfig, adjust .gitattributes and .gitignore for consistency, and remove deprecated polyfill code. Enhance Invoker class methods with Guard checks for null arguments. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Enhance .NET workflow with manual trigger support, update build steps for SonarQube integration, and improve error handling in PSBuild scripts. Adjust project files for .NET 9 compatibility and refine test cases for better exception handling. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update configuration files and scripts for improved build and test processes ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove Directory.Build.props and Directory.Build.targets files, delete unused PowerShell scripts, and add copyright headers to Invoker and InvokerTests classes. ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update project metadata and enhance documentation with detailed features and usage examples for the ktsu.Invoker library. ([@matt-edmondson](https://github.com/matt-edmondson))
+- Refactor asynchronous task execution in InvokerTests to use Thread instead of Task.Run, ensuring tasks are queued correctly before assertions. (matt-edmondson)
+- Refactor project files and configurations for .NET 9 compatibility. Update indentation settings in .editorconfig, adjust .gitattributes and .gitignore for consistency, and remove deprecated polyfill code. Enhance Invoker class methods with Guard checks for null arguments. (matt-edmondson)
+- Enhance .NET workflow with manual trigger support, update build steps for SonarQube integration, and improve error handling in PSBuild scripts. Adjust project files for .NET 9 compatibility and refine test cases for better exception handling. (matt-edmondson)
+- Update configuration files and scripts for improved build and test processes (matt-edmondson)
+- Remove Directory.Build.props and Directory.Build.targets files, delete unused PowerShell scripts, and add copyright headers to Invoker and InvokerTests classes. (matt-edmondson)
+- Update project metadata and enhance documentation with detailed features and usage examples for the ktsu.Invoker library. (matt-edmondson)
 
 ## v1.1.1-pre.2 (prerelease)
 
 Changes since v1.1.1-pre.1:
 
-- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .editorconfig ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync .runsettings ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\dotnet.yml (ktsu[bot])
+- Sync .editorconfig (ktsu[bot])
+- Sync .runsettings (ktsu[bot])
 
 ## v1.1.1-pre.1 (prerelease)
 
 Changes since v1.1.0:
 
-- Sync .editorconfig ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .editorconfig (ktsu[bot])
 
 ## v1.1.0 (minor)
 
 Changes since v1.0.0:
 
-- Add LICENSE template ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update changelog script to include additional version check for the initial version ([@matt-edmondson](https://github.com/matt-edmondson))
+- Add LICENSE template (matt-edmondson)
+- Update changelog script to include additional version check for the initial version (matt-edmondson)
 
 ## v1.0.1-pre.2 (prerelease)
 
 Changes since v1.0.1-pre.1:
 
-- Sync scripts\make-version.ps1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\make-changelog.ps1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync scripts\make-version.ps1 (ktsu[bot])
+- Sync scripts\make-changelog.ps1 (ktsu[bot])
 
 ## v1.0.1-pre.1 (prerelease)
 
 Changes since v1.0.0:
 
-- Update changelog script to include additional version check for the initial version ([@matt-edmondson](https://github.com/matt-edmondson))
+- Update changelog script to include additional version check for the initial version (matt-edmondson)
 
 ## v1.0.0 (major)
 
@@ -581,12 +581,12 @@ No significant changes detected since v0.0.1.
 
 ## v0.0.1 (patch)
 
-- Update changelog script to include additional version check for the initial version ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update Sample.csproj to executable output type ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update sample project file to disable packing ([@matt-edmondson](https://github.com/matt-edmondson))
-- Remove exclusion of LICENSE.md from project ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update README.md for ktsu.Invoker usage examples ([@matt-edmondson](https://github.com/matt-edmondson))
-- Fix DoInvokesSameThreadShouldExecuteAllTasks test ([@matt-edmondson](https://github.com/matt-edmondson))
-- Update README.md with improved usage examples ([@matt-edmondson](https://github.com/matt-edmondson))
-- Initial commit ([@matt-edmondson](https://github.com/matt-edmondson))
+- Update changelog script to include additional version check for the initial version (matt-edmondson)
+- Update Sample.csproj to executable output type (matt-edmondson)
+- Update sample project file to disable packing (matt-edmondson)
+- Remove exclusion of LICENSE.md from project (matt-edmondson)
+- Update README.md for ktsu.Invoker usage examples (matt-edmondson)
+- Fix DoInvokesSameThreadShouldExecuteAllTasks test (matt-edmondson)
+- Update README.md with improved usage examples (matt-edmondson)
+- Initial commit (matt-edmondson)
 
