@@ -34,6 +34,9 @@ public class Invoker(int beginInvokeCapacity)
 	/// </summary>
 	private const int DefaultBeginInvokeCapacity = 1024;
 
+	private const TaskCreationOptions QueuedTaskOptions =
+		TaskCreationOptions.RunContinuationsAsynchronously | TaskCreationOptions.DenyChildAttach;
+
 	/// <summary>
 	/// Gets the ID of the thread on which this instance was created.
 	/// </summary>
@@ -87,7 +90,9 @@ public class Invoker(int beginInvokeCapacity)
 
 		// RunContinuationsAsynchronously keeps the caller's code after the await off the owner thread:
 		// without it, DoInvokes' RunSynchronously would run that code inline, inside the pump.
-		Task task = new(func, TaskCreationOptions.RunContinuationsAsynchronously);
+		// DenyChildAttach stops an AttachedToParent child the delegate starts from holding up or faulting
+		// this task, which the owner-thread fast path, with no task to attach to, never does.
+		Task task = new(func, QueuedTaskOptions);
 		TaskQueue.Enqueue((NextSequence(), task));
 		await task.ConfigureAwait(false);
 	}
@@ -122,7 +127,7 @@ public class Invoker(int beginInvokeCapacity)
 		}
 
 		// See InvokeAsync(Action): keep the caller's continuation out of DoInvokes.
-		Task<TReturn> task = new(func, TaskCreationOptions.RunContinuationsAsynchronously);
+		Task<TReturn> task = new(func, QueuedTaskOptions);
 		TaskQueue.Enqueue((NextSequence(), task));
 		return await task.ConfigureAwait(false);
 	}
