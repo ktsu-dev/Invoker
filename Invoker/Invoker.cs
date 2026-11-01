@@ -316,11 +316,20 @@ public class Invoker(int beginInvokeCapacity)
 			}
 		}
 
-		if (failures is null)
+		if (failures is not null)
 		{
-			return;
+			ReportBeginInvokeFailures(failures);
 		}
+	}
 
+	/// <summary>
+	/// Raises <see cref="BeginInvokeFailed"/> for each failure, or throws them as an
+	/// <see cref="AggregateException"/> when no handler is attached.
+	/// </summary>
+	/// <param name="failures">The exceptions thrown by <see cref="TryBeginInvoke(Action)"/> actions during one pump.</param>
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A BeginInvokeFailed handler can throw anything, and each such exception is surfaced in the AggregateException thrown at the end.")]
+	private void ReportBeginInvokeFailures(List<Exception> failures)
+	{
 		// One snapshot for both the null check and the calls: re-reading the event could see the last
 		// handler unsubscribe in between, and then no handler would run and nothing would be thrown.
 		EventHandler<BeginInvokeFailedEventArgs> handler = BeginInvokeFailed
