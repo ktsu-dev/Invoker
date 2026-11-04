@@ -2,6 +2,7 @@
 
 Changes since v1.4.0:
 
+- Document TryBeginInvoke instead of the BeginInvoke the library doesn't have [patch] (#90) (matt-edmondson)
 - Deny child attachment to the tasks Invoke queues [patch] (#93) (matt-edmondson)
 - Regenerate CompatibilitySuppressions.xml after the Polyfill 11.4.5 bump [patch] (#89) (matt-edmondson)
 - Report every TryBeginInvoke failure when a BeginInvokeFailed handler throws [patch] (#88) (matt-edmondson)
