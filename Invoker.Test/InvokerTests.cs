@@ -398,4 +398,129 @@ public class InvokerTests
 		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeAsync(asyncAction));
 		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeAsync(asyncFunction));
 	}
+	private static async ValueTask DelayThenSetAsync(StrongBox<bool> finished)
+	{
+		await Task.Delay(200).ConfigureAwait(false);
+		finished.Value = true;
+	}
+
+	private static async ValueTask YieldThenThrowAsync()
+	{
+		await Task.Yield();
+		throw new InvalidOperationException("boom");
+	}
+
+	private static async ValueTask<int> YieldThenReturnAsync()
+	{
+		await Task.Yield();
+		return 42;
+	}
+
+	private static async ValueTask<int> YieldThenThrowWithResultAsync()
+	{
+		await Task.Yield();
+		throw new InvalidOperationException("boom");
+	}
+
+	[TestMethod]
+	public void InvokeAsyncValueTaskWaitsForCompletionAndPropagates()
+	{
+		Invoker invoker = new();
+		StrongBox<bool> finished = new();
+		Stopwatch elapsed = Stopwatch.StartNew();
+		long completedAfter = 0;
+		bool finishedWhenReturned = false;
+
+		Exception? caught = RunOnWorkerWhilePumping(invoker, () =>
+		{
+			invoker.InvokeAsync(() => DelayThenSetAsync(finished)).GetAwaiter().GetResult();
+			completedAfter = elapsed.ElapsedMilliseconds;
+			finishedWhenReturned = finished.Value;
+			invoker.InvokeAsync(YieldThenThrowAsync).GetAwaiter().GetResult();
+		});
+
+		Assert.IsTrue(finishedWhenReturned, "InvokeAsync should not complete before the ValueTask has finished.");
+		Assert.IsGreaterThanOrEqualTo(190, completedAfter, "InvokeAsync should wait for the ValueTask to complete.");
+		Assert.IsNotNull(caught, "An exception thrown after the ValueTask's first await should reach the caller.");
+		Assert.AreEqual("boom", caught.Message);
+	}
+
+	[TestMethod]
+	public void InvokeAsyncValueTaskOfTReturnsInnerResultAndPropagates()
+	{
+		Invoker invoker = new();
+		int result = 0;
+
+		Exception? caught = RunOnWorkerWhilePumping(invoker, () =>
+		{
+			result = invoker.InvokeAsync(YieldThenReturnAsync).GetAwaiter().GetResult();
+			_ = invoker.InvokeAsync(YieldThenThrowWithResultAsync).GetAwaiter().GetResult();
+		});
+
+		Assert.AreEqual(42, result);
+		Assert.IsNotNull(caught, "An exception thrown after the ValueTask's first await should reach the caller.");
+		Assert.AreEqual("boom", caught.Message);
+	}
+
+	[TestMethod]
+	public void InvokeValueTaskBlocksUntilCompletionAndPropagates()
+	{
+		Invoker invoker = new();
+		StrongBox<bool> finished = new();
+		int result = 0;
+
+		Exception? caught = RunOnWorkerWhilePumping(invoker, () =>
+		{
+			invoker.Invoke(() => DelayThenSetAsync(finished));
+			result = invoker.Invoke(YieldThenReturnAsync);
+			invoker.Invoke(YieldThenThrowAsync);
+		});
+
+		Assert.IsTrue(finished.Value, "Invoke should block until the ValueTask has finished.");
+		Assert.AreEqual(42, result);
+		Assert.IsNotNull(caught, "Invoke should rethrow an exception thrown after the ValueTask's first await.");
+		Assert.AreEqual("boom", caught.Message);
+	}
+
+	[TestMethod]
+	public void InvokeValueTaskOfTRethrowsAfterFirstAwait()
+	{
+		Invoker invoker = new();
+
+		Exception? caught = RunOnWorkerWhilePumping(invoker, () => _ = invoker.Invoke(YieldThenThrowWithResultAsync));
+
+		Assert.IsNotNull(caught, "Invoke should rethrow an exception thrown after the ValueTask's first await.");
+		Assert.AreEqual("boom", caught.Message);
+	}
+
+	[TestMethod]
+	public void InvokeAsyncValueTaskOnOwnerThreadWaitsAndPropagates()
+	{
+		// Owner-thread fast path. Blocking is safe because nothing below needs DoInvokes to be pumped.
+		Invoker invoker = new();
+		StrongBox<bool> finished = new();
+
+		invoker.InvokeAsync(() => DelayThenSetAsync(finished)).GetAwaiter().GetResult();
+		Assert.IsTrue(finished.Value, "On the owner thread, InvokeAsync should still wait for the ValueTask to finish.");
+
+		Assert.AreEqual(42, invoker.InvokeAsync(YieldThenReturnAsync).GetAwaiter().GetResult());
+		Assert.AreEqual(42, invoker.Invoke(YieldThenReturnAsync));
+
+		InvalidOperationException e = Assert.ThrowsExactly<InvalidOperationException>(() => invoker.InvokeAsync(YieldThenThrowAsync).GetAwaiter().GetResult());
+		Assert.AreEqual("boom", e.Message);
+		e = Assert.ThrowsExactly<InvalidOperationException>(() => invoker.Invoke(YieldThenThrowAsync));
+		Assert.AreEqual("boom", e.Message);
+	}
+
+	[TestMethod]
+	public void InvokeValueTaskNullThrowsAtTheCallSite()
+	{
+		Invoker invoker = new();
+		Func<ValueTask> valueTaskAction = null!;
+		Func<ValueTask<int>> valueTaskFunction = null!;
+		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeAsync(valueTaskAction));
+		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeAsync(valueTaskFunction));
+		Assert.ThrowsExactly<ArgumentNullException>(() => invoker.Invoke(valueTaskAction));
+		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.Invoke(valueTaskFunction));
+	}
 }
