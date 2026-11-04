@@ -112,9 +112,13 @@ using ktsu.Invoker;
 var invoker = new Invoker();
 
 // From background thread
-await Task.Run(async () => {
-    // Queue task and continue without waiting
-    invoker.BeginInvoke(() => Console.WriteLine("Processing in the background"));
+Task background = Task.Run(async () => {
+    // Queue task and continue without waiting. TryBeginInvoke returns false, and drops the
+    // action, if the bounded queue is full.
+    if (!invoker.TryBeginInvoke(() => Console.WriteLine("Processing in the background")))
+    {
+        Console.WriteLine("Queue full, message dropped");
+    }
     
     // Queue task and get Task for completion
     Task<string> resultTask = invoker.InvokeAsync(() => "Result from main thread");
@@ -124,8 +128,12 @@ await Task.Run(async () => {
     Console.WriteLine($"Got result: {result}");
 });
 
-// On main thread, execute pending operations
-invoker.DoInvokes();
+// On main thread, keep executing pending operations until the background work is done.
+// Awaiting the background task first would hang: its InvokeAsync waits for a DoInvokes call.
+while (!background.IsCompleted)
+{
+    invoker.DoInvokes();
+}
 ```
 
 ### Game Loop Integration
@@ -160,8 +168,12 @@ public class Game
     // Call this from other threads
     public void QueueTextureLoad(string texturePath)
     {
-        // OpenGL/DirectX resources often need to be created on the main thread
-        _invoker.BeginInvoke(() => LoadTextureOnMainThread(texturePath));
+        // OpenGL/DirectX resources often need to be created on the main thread.
+        // TryBeginInvoke returns false, and drops the action, if the bounded queue is full.
+        if (!_invoker.TryBeginInvoke(() => LoadTextureOnMainThread(texturePath)))
+        {
+            // Retry next frame, or fall back to the awaitable InvokeAsync
+        }
     }
     
     private void LoadTextureOnMainThread(string texturePath)
@@ -177,13 +189,6 @@ public class Game
 
 The main class that manages execution of delegates on the intended thread.
 
-#### Properties
-
-| Name | Type | Description |
-|------|------|-------------|
-| `IsInvokerThread` | `bool` | Returns true if the current thread is the thread that owns the invoker |
-| `HasPendingInvokes` | `bool` | Returns true if there are any pending invocations waiting to be processed |
-
 #### Methods
 
 | Name | Parameters | Return Type | Description |
@@ -194,7 +199,7 @@ The main class that manages execution of delegates on the intended thread.
 | `Invoke` | `Func<Task> func` | `void` | Starts the async function on the owner thread and blocks until its task completes |
 | `Invoke<T>` | `Func<ValueTask<T>> func` | `T` | Starts the `ValueTask`-returning function on the owner thread and blocks until it completes, returning its result |
 | `Invoke` | `Func<ValueTask> func` | `void` | Starts the `ValueTask`-returning function on the owner thread and blocks until it completes |
-| `BeginInvoke` | `Action action` | `void` | Queues an action to be executed on the owner thread without waiting for completion |
+| `TryBeginInvoke` | `Action action` | `bool` | Queues an action to be executed on the owner thread without waiting for completion. Returns `false`, and drops the action, if the bounded queue is full. From the owner thread the action runs immediately |
 | `InvokeAsync<T>` | `Func<T> func` | `Task<T>` | Queues a function to be executed on the owner thread and returns a Task that completes with the result |
 | `InvokeAsync<T>` | `Func<Task<T>> func` | `Task<T>` | Queues an async function to start on the owner thread and returns a Task that completes with the result of the function's task, once that task has completed |
 | `InvokeAsync` | `Func<Task> func` | `Task` | Queues an async function to start on the owner thread and returns a Task that completes when the function's task does, carrying any exception it throws |
@@ -248,26 +253,23 @@ public class ResourceManager
 }
 ```
 
-### Custom Thread Identification
+### Choosing the Owner Thread and Queue Capacity
 
-Sometimes you may need custom thread identification logic:
+The thread that constructs an `Invoker` owns it, and that can't be changed later. To own it from a
+different thread, such as a dedicated render thread, construct it on that thread. The optional
+constructor argument sets the capacity of the non-blocking `TryBeginInvoke` queue (default 1024,
+rounded up to the next power of two):
 
 ```csharp
-public class CustomInvoker : Invoker
+Invoker? renderInvoker = null;
+
+Thread renderThread = new(() =>
 {
-    private readonly int _targetThreadId;
-    
-    public CustomInvoker(int targetThreadId)
-    {
-        _targetThreadId = targetThreadId;
-    }
-    
-    // Override to provide custom thread identification
-    protected override bool IsOwnerThread()
-    {
-        return Thread.CurrentThread.ManagedThreadId == _targetThreadId;
-    }
-}
+    // This thread now owns the invoker, and is the one that must call DoInvokes()
+    renderInvoker = new Invoker(beginInvokeCapacity: 4096);
+    // ... render loop that calls renderInvoker.DoInvokes() each frame
+});
+renderThread.Start();
 ```
 
 ## Contributing
