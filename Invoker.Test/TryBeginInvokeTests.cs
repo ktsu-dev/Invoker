@@ -217,6 +217,42 @@ public class TryBeginInvokeTests
 	}
 
 	[TestMethod]
+	public void ThrowingHandlerStillReceivesEveryLaterFailure()
+	{
+		Invoker invoker = new();
+		List<string> seen = [];
+		invoker.BeginInvokeFailed += (_, e) =>
+		{
+			seen.Add(e.Exception.Message);
+			if (seen.Count == 1)
+			{
+				throw new InvalidOperationException("handler threw");
+			}
+		};
+
+		Thread producer = new(() =>
+		{
+			for (int i = 0; i < 3; i++)
+			{
+				string message = $"fail {i}";
+				invoker.TryBeginInvoke(() => throw new ArgumentException(message));
+			}
+		});
+		producer.Start();
+		producer.Join();
+
+		AggregateException aggregate = Assert.ThrowsExactly<AggregateException>(invoker.DoInvokes);
+
+		Assert.AreEqual("fail 0, fail 1, fail 2", string.Join(", ", seen), "Every failure should reach the handler, even after it threw.");
+		Assert.HasCount(2, aggregate.InnerExceptions);
+		Assert.AreEqual("handler threw", aggregate.InnerExceptions[0].Message);
+		Assert.AreEqual("fail 0", aggregate.InnerExceptions[1].Message, "The failure the handler threw on should be surfaced with it.");
+
+		invoker.DoInvokes();
+		Assert.HasCount(3, seen, "A later pump has nothing left over to report.");
+	}
+
+	[TestMethod]
 	public void InvokeAsyncThenTryBeginInvokeFromOneThreadRunInSubmissionOrder()
 	{
 		Invoker invoker = new();

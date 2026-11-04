@@ -304,7 +304,9 @@ public class Invoker(int beginInvokeCapacity)
 	/// <remarks>
 	/// Raised only after the pump has run all the work it took on, so a failing action never delays
 	/// other queued work. When no handler is attached, <see cref="DoInvokes"/> throws an
-	/// <see cref="AggregateException"/> instead, so the failure is never silently lost.
+	/// <see cref="AggregateException"/> instead, so the failure is never silently lost. Each failure is
+	/// raised on its own, so a handler that throws still receives every later failure; what it threw is
+	/// then surfaced by <see cref="DoInvokes"/> as an <see cref="AggregateException"/>.
 	/// </remarks>
 	public event EventHandler<BeginInvokeFailedEventArgs>? BeginInvokeFailed;
 
@@ -320,8 +322,8 @@ public class Invoker(int beginInvokeCapacity)
 	/// <see cref="BeginInvokeFailed"/> once that work has run.
 	/// </remarks>
 	/// <exception cref="InvalidOperationException">Thrown when this method is called on a different thread than the one that created the Invoker instance.</exception>
-	/// <exception cref="AggregateException">Thrown after the queued work has run when one or more <see cref="TryBeginInvoke(Action)"/> actions threw and no <see cref="BeginInvokeFailed"/> handler is attached.</exception>
-	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A fire-and-forget action can throw anything, and every failure is reported through BeginInvokeFailed or an AggregateException once the pump's work has run.")]
+	/// <exception cref="AggregateException">Thrown after the queued work has run when one or more <see cref="TryBeginInvoke(Action)"/> actions threw and no <see cref="BeginInvokeFailed"/> handler is attached, or when a handler threw. In the latter case every failure has still been raised to the handler, and each handler exception is followed in <see cref="AggregateException.InnerExceptions"/> by the failure it was handling.</exception>
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A fire-and-forget action or a BeginInvokeFailed handler can throw anything, and every failure is reported through BeginInvokeFailed or an AggregateException once the pump's work has run.")]
 	public void DoInvokes()
 	{
 		if (ThreadId != Environment.CurrentManagedThreadId)
@@ -371,19 +373,43 @@ public class Invoker(int beginInvokeCapacity)
 			}
 		}
 
-		if (failures is null)
+		if (failures is not null)
 		{
-			return;
+			ReportBeginInvokeFailures(failures);
 		}
+	}
 
-		if (BeginInvokeFailed is null)
-		{
-			throw new AggregateException("One or more actions queued with TryBeginInvoke threw.", failures);
-		}
+	/// <summary>
+	/// Raises <see cref="BeginInvokeFailed"/> for each failure, or throws them as an
+	/// <see cref="AggregateException"/> when no handler is attached.
+	/// </summary>
+	/// <param name="failures">The exceptions thrown by <see cref="TryBeginInvoke(Action)"/> actions during one pump.</param>
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A BeginInvokeFailed handler can throw anything, and each such exception is surfaced in the AggregateException thrown at the end.")]
+	private void ReportBeginInvokeFailures(List<Exception> failures)
+	{
+		// One snapshot for both the null check and the calls: re-reading the event could see the last
+		// handler unsubscribe in between, and then no handler would run and nothing would be thrown.
+		EventHandler<BeginInvokeFailedEventArgs> handler = BeginInvokeFailed
+			?? throw new AggregateException("One or more actions queued with TryBeginInvoke threw.", failures);
 
+		// A handler that throws must not cost the failures after it their report, so each one is raised
+		// on its own and anything a handler throws is surfaced, with the failure it was handling, at the end.
+		List<Exception>? handlerFailures = null;
 		foreach (Exception failure in failures)
 		{
-			BeginInvokeFailed?.Invoke(this, new BeginInvokeFailedEventArgs(failure));
+			try
+			{
+				handler(this, new BeginInvokeFailedEventArgs(failure));
+			}
+			catch (Exception ex)
+			{
+				(handlerFailures ??= []).AddRange([ex, failure]);
+			}
+		}
+
+		if (handlerFailures is not null)
+		{
+			throw new AggregateException("A BeginInvokeFailed handler threw. Each handler exception is followed by the TryBeginInvoke failure it was handling.", handlerFailures);
 		}
 	}
 
