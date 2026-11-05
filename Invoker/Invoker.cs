@@ -3,7 +3,6 @@
 namespace ktsu.Invoker;
 
 using System.Collections.Concurrent;
-using System.Runtime.CompilerServices;
 
 /// <summary>
 /// Provides methods to invoke actions and functions asynchronously or synchronously on a specific thread.
@@ -154,7 +153,6 @@ public class Invoker(int beginInvokeCapacity)
 	/// <see cref="InvokeAsync{TReturn}(Func{TReturn})"/>, whose task completes at the lambda's first
 	/// incomplete await and never surfaces an exception thrown after it.
 	/// </remarks>
-	[OverloadResolutionPriority(1)]
 	public Task InvokeAsync(Func<Task> func)
 	{
 		Ensure.NotNull(func);
@@ -175,7 +173,6 @@ public class Invoker(int beginInvokeCapacity)
 	/// <returns>A task that completes with the result of the task returned by <paramref name="func"/>.</returns>
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	/// <remarks>See <see cref="InvokeAsync(Func{Task})"/>.</remarks>
-	[OverloadResolutionPriority(1)]
 	public Task<TReturn> InvokeAsync<TReturn>(Func<Task<TReturn>> func)
 	{
 		Ensure.NotNull(func);
@@ -200,7 +197,6 @@ public class Invoker(int beginInvokeCapacity)
 	/// <see cref="InvokeAsync(Func{Task})"/> there.
 	/// </remarks>
 	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
-	[OverloadResolutionPriority(1)]
 	public void Invoke(Func<Task> func) => InvokeAsync(func).GetAwaiter().GetResult();
 
 	/// <summary>
@@ -212,7 +208,6 @@ public class Invoker(int beginInvokeCapacity)
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	/// <remarks>See <see cref="Invoke(Func{Task})"/>.</remarks>
 	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
-	[OverloadResolutionPriority(1)]
 	public TReturn Invoke<TReturn>(Func<Task<TReturn>> func) => InvokeAsync(func).GetAwaiter().GetResult();
 
 	/// <summary>
@@ -223,11 +218,14 @@ public class Invoker(int beginInvokeCapacity)
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	/// <remarks>
 	/// The function starts on the owner thread, where its <see cref="ValueTask"/> is converted to a
-	/// <see cref="Task"/> so it is consumed exactly once. Without this overload the function would bind to
-	/// <see cref="InvokeAsync{TReturn}(Func{TReturn})"/>, whose task completes at the function's first
-	/// incomplete await and never surfaces an exception thrown after it.
+	/// <see cref="Task"/> so it is consumed exactly once. Passed to <c>InvokeAsync</c>, a <see cref="ValueTask"/>-returning
+	/// function would bind to <see cref="InvokeAsync{TReturn}(Func{TReturn})"/>, whose task completes at the function's
+	/// first incomplete await and never surfaces an exception thrown after it.
+	/// This is not an <c>InvokeAsync</c> overload because an async lambda converts equally well to
+	/// <see cref="Func{TResult}"/> of <see cref="Task"/> and of <see cref="ValueTask"/>, so the two overloads would be
+	/// ambiguous on C# 12 and earlier, the default for net8.0, netstandard and .NET Framework consumers.
 	/// </remarks>
-	public Task InvokeAsync(Func<ValueTask> func)
+	public Task InvokeValueTaskAsync(Func<ValueTask> func)
 	{
 		Ensure.NotNull(func);
 		return InvokeAndAwaitCoreAsync(() => func().AsTask());
@@ -240,8 +238,8 @@ public class Invoker(int beginInvokeCapacity)
 	/// <param name="func">The asynchronous function to invoke.</param>
 	/// <returns>A task that completes with the result of the <see cref="ValueTask{TResult}"/> returned by <paramref name="func"/>.</returns>
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
-	/// <remarks>See <see cref="InvokeAsync(Func{ValueTask})"/>.</remarks>
-	public Task<TReturn> InvokeAsync<TReturn>(Func<ValueTask<TReturn>> func)
+	/// <remarks>See <see cref="InvokeValueTaskAsync(Func{ValueTask})"/>.</remarks>
+	public Task<TReturn> InvokeValueTaskAsync<TReturn>(Func<ValueTask<TReturn>> func)
 	{
 		Ensure.NotNull(func);
 		return InvokeAndAwaitCoreAsync(() => func().AsTask());
@@ -254,7 +252,7 @@ public class Invoker(int beginInvokeCapacity)
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	/// <remarks>See <see cref="Invoke(Func{Task})"/>.</remarks>
 	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
-	public void Invoke(Func<ValueTask> func) => InvokeAsync(func).GetAwaiter().GetResult();
+	public void InvokeValueTask(Func<ValueTask> func) => InvokeValueTaskAsync(func).GetAwaiter().GetResult();
 
 	/// <summary>
 	/// Invokes the specified <see cref="ValueTask{TResult}"/>-returning function, blocks until the operation it returns completes, and returns its result.
@@ -265,7 +263,7 @@ public class Invoker(int beginInvokeCapacity)
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	/// <remarks>See <see cref="Invoke(Func{Task})"/>.</remarks>
 	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
-	public TReturn Invoke<TReturn>(Func<ValueTask<TReturn>> func) => InvokeAsync(func).GetAwaiter().GetResult();
+	public TReturn InvokeValueTask<TReturn>(Func<ValueTask<TReturn>> func) => InvokeValueTaskAsync(func).GetAwaiter().GetResult();
 
 	/// <summary>
 	/// Attempts to queue an action to run on the owner thread without blocking the caller

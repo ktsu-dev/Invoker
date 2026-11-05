@@ -9,6 +9,10 @@
       </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Invoker\Invoker.csproj" />
   </ItemGroup>
 

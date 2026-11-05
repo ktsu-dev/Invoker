@@ -433,10 +433,10 @@ public class InvokerTests
 
 		Exception? caught = RunOnWorkerWhilePumping(invoker, () =>
 		{
-			invoker.InvokeAsync(() => DelayThenSetAsync(finished)).GetAwaiter().GetResult();
+			invoker.InvokeValueTaskAsync(() => DelayThenSetAsync(finished)).GetAwaiter().GetResult();
 			completedAfter = elapsed.ElapsedMilliseconds;
 			finishedWhenReturned = finished.Value;
-			invoker.InvokeAsync(YieldThenThrowAsync).GetAwaiter().GetResult();
+			invoker.InvokeValueTaskAsync(YieldThenThrowAsync).GetAwaiter().GetResult();
 		});
 
 		Assert.IsTrue(finishedWhenReturned, "InvokeAsync should not complete before the ValueTask has finished.");
@@ -453,8 +453,8 @@ public class InvokerTests
 
 		Exception? caught = RunOnWorkerWhilePumping(invoker, () =>
 		{
-			result = invoker.InvokeAsync(YieldThenReturnAsync).GetAwaiter().GetResult();
-			_ = invoker.InvokeAsync(YieldThenThrowWithResultAsync).GetAwaiter().GetResult();
+			result = invoker.InvokeValueTaskAsync(YieldThenReturnAsync).GetAwaiter().GetResult();
+			_ = invoker.InvokeValueTaskAsync(YieldThenThrowWithResultAsync).GetAwaiter().GetResult();
 		});
 
 		Assert.AreEqual(42, result);
@@ -471,9 +471,9 @@ public class InvokerTests
 
 		Exception? caught = RunOnWorkerWhilePumping(invoker, () =>
 		{
-			invoker.Invoke(() => DelayThenSetAsync(finished));
-			result = invoker.Invoke(YieldThenReturnAsync);
-			invoker.Invoke(YieldThenThrowAsync);
+			invoker.InvokeValueTask(() => DelayThenSetAsync(finished));
+			result = invoker.InvokeValueTask(YieldThenReturnAsync);
+			invoker.InvokeValueTask(YieldThenThrowAsync);
 		});
 
 		Assert.IsTrue(finished.Value, "Invoke should block until the ValueTask has finished.");
@@ -487,7 +487,7 @@ public class InvokerTests
 	{
 		Invoker invoker = new();
 
-		Exception? caught = RunOnWorkerWhilePumping(invoker, () => _ = invoker.Invoke(YieldThenThrowWithResultAsync));
+		Exception? caught = RunOnWorkerWhilePumping(invoker, () => _ = invoker.InvokeValueTask(YieldThenThrowWithResultAsync));
 
 		Assert.IsNotNull(caught, "Invoke should rethrow an exception thrown after the ValueTask's first await.");
 		Assert.AreEqual("boom", caught.Message);
@@ -500,15 +500,15 @@ public class InvokerTests
 		Invoker invoker = new();
 		StrongBox<bool> finished = new();
 
-		invoker.InvokeAsync(() => DelayThenSetAsync(finished)).GetAwaiter().GetResult();
+		invoker.InvokeValueTaskAsync(() => DelayThenSetAsync(finished)).GetAwaiter().GetResult();
 		Assert.IsTrue(finished.Value, "On the owner thread, InvokeAsync should still wait for the ValueTask to finish.");
 
-		Assert.AreEqual(42, invoker.InvokeAsync(YieldThenReturnAsync).GetAwaiter().GetResult());
-		Assert.AreEqual(42, invoker.Invoke(YieldThenReturnAsync));
+		Assert.AreEqual(42, invoker.InvokeValueTaskAsync(YieldThenReturnAsync).GetAwaiter().GetResult());
+		Assert.AreEqual(42, invoker.InvokeValueTask(YieldThenReturnAsync));
 
-		InvalidOperationException e = Assert.ThrowsExactly<InvalidOperationException>(() => invoker.InvokeAsync(YieldThenThrowAsync).GetAwaiter().GetResult());
+		InvalidOperationException e = Assert.ThrowsExactly<InvalidOperationException>(() => invoker.InvokeValueTaskAsync(YieldThenThrowAsync).GetAwaiter().GetResult());
 		Assert.AreEqual("boom", e.Message);
-		e = Assert.ThrowsExactly<InvalidOperationException>(() => invoker.Invoke(YieldThenThrowAsync));
+		e = Assert.ThrowsExactly<InvalidOperationException>(() => invoker.InvokeValueTask(YieldThenThrowAsync));
 		Assert.AreEqual("boom", e.Message);
 	}
 
@@ -518,9 +518,9 @@ public class InvokerTests
 		Invoker invoker = new();
 		Func<ValueTask> valueTaskAction = null!;
 		Func<ValueTask<int>> valueTaskFunction = null!;
-		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeAsync(valueTaskAction));
-		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeAsync(valueTaskFunction));
-		Assert.ThrowsExactly<ArgumentNullException>(() => invoker.Invoke(valueTaskAction));
-		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.Invoke(valueTaskFunction));
+		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeValueTaskAsync(valueTaskAction));
+		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeValueTaskAsync(valueTaskFunction));
+		Assert.ThrowsExactly<ArgumentNullException>(() => invoker.InvokeValueTask(valueTaskAction));
+		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeValueTask(valueTaskFunction));
 	}
 }
