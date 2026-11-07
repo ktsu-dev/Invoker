@@ -22,7 +22,7 @@ Invoker is a .NET library that provides methods to ensure delegates are executed
 - **Immediate Execution**: Auto-detect if already on the target thread for optimal performance
 - **Queue Management**: Built-in task queue with controlled execution timing
 - **Thread Ownership**: Clear ownership model for execution contexts
-- **Exception Propagation**: `Invoke`/`InvokeAsync` rethrow a delegate's exception to its own caller; a throwing `TryBeginInvoke` action is reported through the `BeginInvokeFailed` event (or an `AggregateException` from `DoInvokes` when nothing handles it) without stopping the rest of the queue
+- **Exception Propagation**: `Invoke`/`InvokeAsync` rethrow a delegate's exception to its own caller; a throwing `TryBeginInvoke` action is reported through the `BeginInvokeFailed` event (or an `AggregateException` from `DoInvokes` when nothing handles it) without stopping the rest of the queue, whichever thread called `TryBeginInvoke`
 - **Lightweight Design**: Minimal overhead for performance-critical applications
 
 ## Installation
@@ -212,7 +212,7 @@ The main class that manages execution of delegates on the intended thread.
 
 | Name | Args | Description |
 |------|------|-------------|
-| `BeginInvokeFailed` | `BeginInvokeFailedEventArgs` | Raised on the owner thread, after `DoInvokes` has run its pending work, once per `TryBeginInvoke` action that threw. With no handler attached, `DoInvokes` throws an `AggregateException` of those failures instead. If a handler throws, it still receives every later failure, and `DoInvokes` then throws an `AggregateException` holding each handler exception followed by the failure it was handling |
+| `BeginInvokeFailed` | `BeginInvokeFailedEventArgs` | Raised on the owner thread, after `DoInvokes` has run its pending work, once per `TryBeginInvoke` action that threw. With no handler attached, `DoInvokes` throws an `AggregateException` of those failures instead. If a handler throws, it still receives every later failure, and `DoInvokes` then throws an `AggregateException` holding each handler exception followed by the failure it was handling. An action `TryBeginInvoke` ran inline on the owner thread is reported the same way: with the pump's other failures when it ran inside `DoInvokes` (for example from an `InvokeAsync` delegate), or at once from `TryBeginInvoke` otherwise, which then throws the `AggregateException` itself when no handler is attached |
 
 ## Advanced Usage
 

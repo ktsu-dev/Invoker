@@ -397,4 +397,133 @@ public class TryBeginInvokeTests
 			filled.Dispose();
 		}
 	}
+
+	[TestMethod]
+	public void OwnerThreadThrowingActionIsReportedNotThrown()
+	{
+		Invoker invoker = new();
+		List<Exception> failures = [];
+		invoker.BeginInvokeFailed += (_, e) => failures.Add(e.Exception);
+
+		bool result = invoker.TryBeginInvoke(() => throw new InvalidOperationException("owner boom"));
+
+		Assert.IsTrue(result, "The action ran, so TryBeginInvoke should still report success.");
+		Assert.HasCount(1, failures);
+		Assert.AreEqual("owner boom", failures[0].Message);
+	}
+
+	[TestMethod]
+	public void OwnerThreadThrowingActionWithoutHandlerThrowsAggregate()
+	{
+		Invoker invoker = new();
+
+		AggregateException aggregate = Assert.ThrowsExactly<AggregateException>(
+			() => invoker.TryBeginInvoke(() => throw new InvalidOperationException("owner boom")));
+
+		Assert.HasCount(1, aggregate.InnerExceptions);
+		Assert.AreEqual("owner boom", aggregate.InnerExceptions[0].Message);
+	}
+
+	[TestMethod]
+	public void ThrowingActionPostedFromInvokeAsyncDoesNotFaultTheCaller()
+	{
+		Invoker invoker = new();
+		List<Exception> failures = [];
+		invoker.BeginInvokeFailed += (_, e) => failures.Add(e.Exception);
+
+		Task caller = Task.Run(() => invoker.InvokeAsync(
+			() => invoker.TryBeginInvoke(() => throw new InvalidOperationException("nested boom"))),
+			TestContext.CancellationToken);
+		SpinWait.SpinUntil(() => !invoker.TaskQueue.IsEmpty, TimeSpan.FromSeconds(5));
+
+		invoker.DoInvokes();
+
+		Assert.IsTrue(caller.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken), "The InvokeAsync caller should be released.");
+		Assert.IsFalse(caller.IsFaulted, "The InvokeAsync caller's own work succeeded, so its task must not carry another action's failure.");
+		Assert.HasCount(1, failures);
+		Assert.AreEqual("nested boom", failures[0].Message);
+	}
+
+	[TestMethod]
+	public void ThrowingActionPostedFromInvokeAsyncWithoutHandlerIsThrownByDoInvokes()
+	{
+		Invoker invoker = new();
+
+		Task caller = Task.Run(() => invoker.InvokeAsync(
+			() => invoker.TryBeginInvoke(() => throw new InvalidOperationException("nested boom"))),
+			TestContext.CancellationToken);
+		SpinWait.SpinUntil(() => !invoker.TaskQueue.IsEmpty, TimeSpan.FromSeconds(5));
+
+		AggregateException aggregate = Assert.ThrowsExactly<AggregateException>(invoker.DoInvokes);
+
+		Assert.HasCount(1, aggregate.InnerExceptions);
+		Assert.AreEqual("nested boom", aggregate.InnerExceptions[0].Message);
+		Assert.IsTrue(caller.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken), "The InvokeAsync caller should complete successfully.");
+	}
+
+	[TestMethod]
+	public void ThrowingActionPostedFromAQueuedActionIsReportedOnItsOwn()
+	{
+		Invoker invoker = new();
+		List<string> failures = [];
+		invoker.BeginInvokeFailed += (_, e) => failures.Add(e.Exception.Message);
+		bool outerFinished = false;
+
+		Thread producer = new(() => invoker.TryBeginInvoke(() =>
+		{
+			invoker.TryBeginInvoke(() => throw new InvalidOperationException("inner boom"));
+			outerFinished = true;
+		}));
+		producer.Start();
+		producer.Join();
+
+		invoker.DoInvokes();
+
+		Assert.IsTrue(outerFinished, "The inner failure must not abort the outer action.");
+		Assert.AreEqual("inner boom", string.Join(", ", failures), "Only the inner action failed, and it should be reported once.");
+	}
+
+	[TestMethod]
+	public void ThrowingActionPostedFromAQueuedActionWithoutHandlerIsThrownByDoInvokes()
+	{
+		Invoker invoker = new();
+		bool outerFinished = false;
+
+		Thread producer = new(() => invoker.TryBeginInvoke(() =>
+		{
+			invoker.TryBeginInvoke(() => throw new InvalidOperationException("inner boom"));
+			outerFinished = true;
+		}));
+		producer.Start();
+		producer.Join();
+
+		AggregateException aggregate = Assert.ThrowsExactly<AggregateException>(invoker.DoInvokes);
+
+		Assert.IsTrue(outerFinished, "The inner failure must not abort the outer action.");
+		Assert.HasCount(1, aggregate.InnerExceptions);
+		Assert.AreEqual("inner boom", aggregate.InnerExceptions[0].Message);
+	}
+
+	[TestMethod]
+	public void FailuresOfANestedPumpAreReportedByThatPump()
+	{
+		Invoker invoker = new();
+		List<string> failures = [];
+		invoker.BeginInvokeFailed += (_, e) => failures.Add(e.Exception.Message);
+		int reportedWhenNestedPumpReturned = -1;
+
+		Thread producer = new(() => invoker.TryBeginInvoke(() =>
+		{
+			invoker.TryBeginInvoke(() => throw new InvalidOperationException("outer pump"));
+			invoker.DoInvokes();
+			reportedWhenNestedPumpReturned = failures.Count;
+		}));
+		producer.Start();
+		producer.Join();
+
+		invoker.DoInvokes();
+
+		Assert.AreEqual(0, reportedWhenNestedPumpReturned, "A failure collected by the outer pump should wait for the outer pump.");
+		Assert.AreEqual("outer pump", string.Join(", ", failures));
+	}
 }

@@ -50,6 +50,17 @@ public class Invoker(int beginInvokeCapacity)
 	private long submissionSequence;
 
 	/// <summary>
+	/// Whether <see cref="DoInvokes"/> is running on the owner thread. Read and written only there.
+	/// </summary>
+	private bool isPumping;
+
+	/// <summary>
+	/// The <see cref="TryBeginInvoke(Action)"/> failures the running pump will report once its work has
+	/// run, or <see langword="null"/> while it has none. Read and written only on the owner thread.
+	/// </summary>
+	private List<Exception>? pumpFailures;
+
+	/// <summary>
 	/// Gets the queue of tasks to be executed, each with its submission number.
 	/// </summary>
 	internal ConcurrentQueue<(long Sequence, Task Task)> TaskQueue { get; } = new();
@@ -288,14 +299,43 @@ public class Invoker(int beginInvokeCapacity)
 	/// <c>TryBeginInvoke(B)</c> sees A run before B. An action queued while a pump is already running
 	/// waits for the pump after it.
 	/// When called from the owner thread the action runs synchronously and immediately.
+	/// <para>
+	/// A throwing action is reported the same way whichever thread called this method, and its exception
+	/// never comes back out of <see cref="TryBeginInvoke(Action)"/> to the code that called it. Called on
+	/// the owner thread while <see cref="DoInvokes"/> is running, for example from inside an
+	/// <see cref="InvokeAsync(Action)"/> delegate or another queued action, the failure is reported with
+	/// that pump's other failures once its work has run. Called on the owner thread outside a pump, it is
+	/// reported at once: <see cref="BeginInvokeFailed"/> is raised, or, with no handler attached, an
+	/// <see cref="AggregateException"/> is thrown, as <see cref="DoInvokes"/> would.
+	/// </para>
 	/// </remarks>
+	/// <exception cref="AggregateException">Thrown on the owner thread, outside <see cref="DoInvokes"/>, when the action threw and no <see cref="BeginInvokeFailed"/> handler is attached, or when the handler threw.</exception>
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A fire-and-forget action can throw anything, and every failure is reported through BeginInvokeFailed or an AggregateException, as queued actions' failures are.")]
 	public bool TryBeginInvoke(Action func)
 	{
 		Ensure.NotNull(func);
 
 		if (ThreadId == Environment.CurrentManagedThreadId)
 		{
-			func();
+			// The action did run, so this still returns true. Its exception is reported as a queued
+			// action's would be, rather than thrown into whichever code happened to call this here: the
+			// owner's loop, or an InvokeAsync delegate whose caller would get back another action's failure.
+			try
+			{
+				func();
+			}
+			catch (Exception ex)
+			{
+				if (isPumping)
+				{
+					(pumpFailures ??= []).Add(ex);
+				}
+				else
+				{
+					ReportBeginInvokeFailures([ex]);
+				}
+			}
+
 			return true;
 		}
 
@@ -308,7 +348,9 @@ public class Invoker(int beginInvokeCapacity)
 	/// </summary>
 	/// <remarks>
 	/// Raised only after the pump has run all the work it took on, so a failing action never delays
-	/// other queued work. When no handler is attached, <see cref="DoInvokes"/> throws an
+	/// other queued work. An action that <see cref="TryBeginInvoke(Action)"/> ran inline on the owner
+	/// thread is reported here too: with the pump's other failures when it ran during
+	/// <see cref="DoInvokes"/>, and from <see cref="TryBeginInvoke(Action)"/> itself otherwise. When no handler is attached, <see cref="DoInvokes"/> throws an
 	/// <see cref="AggregateException"/> instead, so the failure is never silently lost. Each failure is
 	/// raised on its own, so a handler that throws still receives every later failure; what it threw is
 	/// then surfaced by <see cref="DoInvokes"/> as an <see cref="AggregateException"/>.
@@ -328,7 +370,6 @@ public class Invoker(int beginInvokeCapacity)
 	/// </remarks>
 	/// <exception cref="InvalidOperationException">Thrown when this method is called on a different thread than the one that created the Invoker instance.</exception>
 	/// <exception cref="AggregateException">Thrown after the queued work has run when one or more <see cref="TryBeginInvoke(Action)"/> actions threw and no <see cref="BeginInvokeFailed"/> handler is attached, or when a handler threw. In the latter case every failure has still been raised to the handler, and each handler exception is followed in <see cref="AggregateException.InnerExceptions"/> by the failure it was handling.</exception>
-	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A fire-and-forget action or a BeginInvokeFailed handler can throw anything, and every failure is reported through BeginInvokeFailed or an AggregateException once the pump's work has run.")]
 	public void DoInvokes()
 	{
 		if (ThreadId != Environment.CurrentManagedThreadId)
@@ -342,11 +383,43 @@ public class Invoker(int beginInvokeCapacity)
 		int beginInvokeBudget = BeginInvokeQueue.Count;
 		int taskBudget = TaskQueue.Count;
 
-		// A fire-and-forget action has no caller to hand its exception back to, so catch it here
-		// rather than let it abort the pump: an escaping exception would skip the rest of both
+		// A fire-and-forget action has no caller to hand its exception back to, so RunPendingWork catches
+		// it rather than let it abort the pump: an escaping exception would skip the rest of both
 		// queues and leave every thread blocked in Invoke waiting for a pump that may never come.
-		List<Exception>? failures = null;
+		// Failures from owner-thread TryBeginInvoke calls made by the work this pump runs go into the
+		// same list. A pump started from inside one of those actions keeps its own list, and the outer
+		// pump's list is restored when it returns.
+		bool outerIsPumping = isPumping;
+		List<Exception>? outerFailures = pumpFailures;
+		isPumping = true;
+		pumpFailures = null;
+		List<Exception>? failures;
+		try
+		{
+			RunPendingWork(beginInvokeBudget, taskBudget);
+		}
+		finally
+		{
+			failures = pumpFailures;
+			pumpFailures = outerFailures;
+			isPumping = outerIsPumping;
+		}
 
+		if (failures is not null)
+		{
+			ReportBeginInvokeFailures(failures);
+		}
+	}
+
+	/// <summary>
+	/// Runs the work <see cref="DoInvokes"/> took on, collecting <see cref="TryBeginInvoke(Action)"/>
+	/// failures into <see cref="pumpFailures"/>.
+	/// </summary>
+	/// <param name="beginInvokeBudget">How many <see cref="TryBeginInvoke(Action)"/> actions this pump may run.</param>
+	/// <param name="taskBudget">How many <see cref="Invoke(Action)"/> and <see cref="InvokeAsync(Action)"/> tasks this pump may run.</param>
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A fire-and-forget action can throw anything, and every failure is reported through BeginInvokeFailed or an AggregateException once the pump's work has run.")]
+	private void RunPendingWork(int beginInvokeBudget, int taskBudget)
+	{
 		// Merge the two queues by submission number. Each queue is FIFO, and a thread takes its
 		// number before it enqueues, so taking the lower-numbered head each time runs one thread's
 		// work in the order that thread submitted it, whichever API it went through.
@@ -362,7 +435,7 @@ public class Invoker(int beginInvokeCapacity)
 				}
 				catch (Exception ex)
 				{
-					(failures ??= []).Add(ex);
+					(pumpFailures ??= []).Add(ex);
 				}
 
 				haveAction = TryTakeAction(ref beginInvokeBudget, out nextAction);
@@ -376,11 +449,6 @@ public class Invoker(int beginInvokeCapacity)
 				nextTask.Task.RunSynchronously(TaskScheduler.Default);
 				haveTask = TryTakeTask(ref taskBudget, out nextTask);
 			}
-		}
-
-		if (failures is not null)
-		{
-			ReportBeginInvokeFailures(failures);
 		}
 	}
 
