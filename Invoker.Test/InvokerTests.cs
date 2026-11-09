@@ -267,6 +267,59 @@ public class InvokerTests
 		}
 	}
 
+	[TestMethod]
+	public async Task InvokeAsyncTaskDelegateThatIsCanceledCancelsTheCallersTaskWithItsToken()
+	{
+		Invoker invoker = new();
+		using CancellationTokenSource cts = new();
+		await cts.CancelAsync().ConfigureAwait(false);
+
+		Task task = invoker.InvokeAsync(async () =>
+		{
+			await Task.Yield();
+			cts.Token.ThrowIfCancellationRequested();
+		});
+
+		OperationCanceledException e = await Assert.ThrowsAsync<OperationCanceledException>(() => task).ConfigureAwait(false);
+		Assert.IsTrue(task.IsCanceled, "The caller's task should be canceled, not faulted.");
+		Assert.AreEqual(cts.Token, e.CancellationToken);
+	}
+
+	[TestMethod]
+	public async Task InvokeAsyncTaskOfTDelegateThatIsCanceledCancelsTheCallersTaskWithItsToken()
+	{
+		Invoker invoker = new();
+		using CancellationTokenSource cts = new();
+		await cts.CancelAsync().ConfigureAwait(false);
+
+		Task<int> task = invoker.InvokeAsync(async () =>
+		{
+			await Task.Yield();
+			cts.Token.ThrowIfCancellationRequested();
+			return 42;
+		});
+
+		OperationCanceledException e = await Assert.ThrowsAsync<OperationCanceledException>(() => task).ConfigureAwait(false);
+		Assert.IsTrue(task.IsCanceled, "The caller's task should be canceled, not faulted.");
+		Assert.AreEqual(cts.Token, e.CancellationToken);
+	}
+
+	[TestMethod]
+	public async Task InvokeAsyncTaskOfTDelegateThatThrowsAfterAnAwaitFaultsTheCallersTask()
+	{
+		Invoker invoker = new();
+
+		Task<int> task = invoker.InvokeAsync<int>(async () =>
+		{
+			await Task.Yield();
+			throw new InvalidOperationException("after await");
+		});
+
+		InvalidOperationException e = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => task).ConfigureAwait(false);
+		Assert.AreEqual("after await", e.Message);
+		Assert.IsTrue(task.IsFaulted);
+	}
+
 	/// <summary>
 	/// Like <see cref="AssertContinuationLeavesOwnerThread"/>, for a delegate whose task the owner thread
 	/// itself completes after the pump, the way a render loop completes a "next frame" source (#102).
