@@ -161,10 +161,33 @@ public class Invoker(int beginInvokeCapacity)
 		return InvokeAndAwaitCoreAsync(func);
 	}
 
-	private async Task InvokeAndAwaitCoreAsync(Func<Task> func)
+	// The task handed back completes through a RunContinuationsAsynchronously source. Returning an
+	// async method's own task instead would let the caller's code after its await run inline on
+	// whichever thread completes the delegate's task, which is often the owner thread (#102).
+	private Task<object?> InvokeAndAwaitCoreAsync(Func<Task> func)
 	{
-		Task inner = await InvokeCoreAsync<Task>(func).ConfigureAwait(false);
-		await inner.ConfigureAwait(false);
+		TaskCompletionSource<object?> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		_ = ForwardCompletionAsync(func, completion);
+		return completion.Task;
+	}
+
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Whatever the delegate throws is handed to the caller's task.")]
+	private async Task ForwardCompletionAsync(Func<Task> func, TaskCompletionSource<object?> completion)
+	{
+		try
+		{
+			Task inner = await InvokeCoreAsync<Task>(func).ConfigureAwait(false);
+			await inner.ConfigureAwait(false);
+			completion.TrySetResult(null);
+		}
+		catch (OperationCanceledException ex)
+		{
+			completion.TrySetCanceled(ex.CancellationToken);
+		}
+		catch (Exception ex)
+		{
+			completion.TrySetException(ex);
+		}
 	}
 
 	/// <summary>
@@ -182,10 +205,30 @@ public class Invoker(int beginInvokeCapacity)
 		return InvokeAndAwaitCoreAsync(func);
 	}
 
-	private async Task<TReturn> InvokeAndAwaitCoreAsync<TReturn>(Func<Task<TReturn>> func)
+	// See InvokeAndAwaitCoreAsync(Func<Task>).
+	private Task<TReturn> InvokeAndAwaitCoreAsync<TReturn>(Func<Task<TReturn>> func)
 	{
-		Task<TReturn> inner = await InvokeCoreAsync<Task<TReturn>>(func).ConfigureAwait(false);
-		return await inner.ConfigureAwait(false);
+		TaskCompletionSource<TReturn> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		_ = ForwardCompletionAsync(func, completion);
+		return completion.Task;
+	}
+
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Whatever the delegate throws is handed to the caller's task.")]
+	private async Task ForwardCompletionAsync<TReturn>(Func<Task<TReturn>> func, TaskCompletionSource<TReturn> completion)
+	{
+		try
+		{
+			Task<TReturn> inner = await InvokeCoreAsync<Task<TReturn>>(func).ConfigureAwait(false);
+			completion.TrySetResult(await inner.ConfigureAwait(false));
+		}
+		catch (OperationCanceledException ex)
+		{
+			completion.TrySetCanceled(ex.CancellationToken);
+		}
+		catch (Exception ex)
+		{
+			completion.TrySetException(ex);
+		}
 	}
 
 	/// <summary>
