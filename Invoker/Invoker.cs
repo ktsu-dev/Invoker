@@ -39,9 +39,19 @@ public class Invoker(int beginInvokeCapacity)
 		TaskCreationOptions.RunContinuationsAsynchronously | TaskCreationOptions.DenyChildAttach;
 
 	/// <summary>
-	/// Gets the ID of the thread on which this instance was created.
+	/// Gets the thread on which this instance was created.
 	/// </summary>
-	private int ThreadId { get; } = Environment.CurrentManagedThreadId;
+	/// <remarks>
+	/// The owner is held and compared by reference rather than by <see cref="Environment.CurrentManagedThreadId"/>:
+	/// .NET reissues a managed thread ID once a dead thread's <see cref="Thread"/> object has been
+	/// collected, so after the owner exits an unrelated thread could otherwise pass the owner check.
+	/// </remarks>
+	private Thread OwnerThread { get; } = Thread.CurrentThread;
+
+	/// <summary>
+	/// Gets a value indicating whether the calling thread is the one that created this instance.
+	/// </summary>
+	private bool IsOwnerThread => ReferenceEquals(Thread.CurrentThread, OwnerThread);
 
 	/// <summary>
 	/// The last submission number handed out. Work from both queues carries one, so
@@ -83,7 +93,7 @@ public class Invoker(int beginInvokeCapacity)
 
 	private async Task InvokeCoreAsync(Action func)
 	{
-		if (ThreadId == Environment.CurrentManagedThreadId)
+		if (IsOwnerThread)
 		{
 			func();
 			return;
@@ -122,7 +132,7 @@ public class Invoker(int beginInvokeCapacity)
 
 	private async Task<TReturn> InvokeCoreAsync<TReturn>(Func<TReturn> func)
 	{
-		if (ThreadId == Environment.CurrentManagedThreadId)
+		if (IsOwnerThread)
 		{
 			return func();
 		}
@@ -336,7 +346,7 @@ public class Invoker(int beginInvokeCapacity)
 	{
 		Ensure.NotNull(func);
 
-		if (ThreadId == Environment.CurrentManagedThreadId)
+		if (IsOwnerThread)
 		{
 			func();
 			return true;
@@ -374,7 +384,7 @@ public class Invoker(int beginInvokeCapacity)
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A fire-and-forget action or a BeginInvokeFailed handler can throw anything, and every failure is reported through BeginInvokeFailed or an AggregateException once the pump's work has run.")]
 	public void DoInvokes()
 	{
-		if (ThreadId != Environment.CurrentManagedThreadId)
+		if (!IsOwnerThread)
 		{
 			throw new InvalidOperationException("This method must be called on the thread that created the Invoker instance.");
 		}
