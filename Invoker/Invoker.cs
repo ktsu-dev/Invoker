@@ -363,7 +363,8 @@ public class Invoker(int beginInvokeCapacity)
 	/// Raised only after the pump has run all the work it took on, so a failing action never delays
 	/// other queued work. When no handler is attached, <see cref="DoInvokes"/> throws an
 	/// <see cref="AggregateException"/> instead, so the failure is never silently lost. Each failure is
-	/// raised on its own, so a handler that throws still receives every later failure; what it threw is
+	/// raised on its own, and to each subscriber on its own, so a handler that throws still receives every
+	/// later failure, and the subscribers after it still receive the failure it threw on; what it threw is
 	/// then surfaced by <see cref="DoInvokes"/> as an <see cref="AggregateException"/>.
 	/// </remarks>
 	public event EventHandler<BeginInvokeFailedEventArgs>? BeginInvokeFailed;
@@ -450,18 +451,25 @@ public class Invoker(int beginInvokeCapacity)
 		EventHandler<BeginInvokeFailedEventArgs> handler = BeginInvokeFailed
 			?? throw new AggregateException("One or more actions queued with TryBeginInvoke threw.", failures);
 
-		// A handler that throws must not cost the failures after it their report, so each one is raised
-		// on its own and anything a handler throws is surfaced, with the failure it was handling, at the end.
+		// A handler that throws must not cost the failures after it, or the subscribers after it, their
+		// report. Invoking the multicast delegate directly would stop at the first subscriber that threw,
+		// so each subscriber is called on its own for each failure, and anything one throws is surfaced,
+		// with the failure it was handling, at the end.
+		Delegate[] subscribers = handler.GetInvocationList();
 		List<Exception>? handlerFailures = null;
 		foreach (Exception failure in failures)
 		{
-			try
+			BeginInvokeFailedEventArgs args = new(failure);
+			foreach (EventHandler<BeginInvokeFailedEventArgs> subscriber in subscribers.Cast<EventHandler<BeginInvokeFailedEventArgs>>())
 			{
-				handler(this, new BeginInvokeFailedEventArgs(failure));
-			}
-			catch (Exception ex)
-			{
-				(handlerFailures ??= []).AddRange([ex, failure]);
+				try
+				{
+					subscriber(this, args);
+				}
+				catch (Exception ex)
+				{
+					(handlerFailures ??= []).AddRange([ex, failure]);
+				}
 			}
 		}
 

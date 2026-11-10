@@ -212,7 +212,7 @@ The main class that manages execution of delegates on the intended thread.
 
 | Name | Args | Description |
 |------|------|-------------|
-| `BeginInvokeFailed` | `BeginInvokeFailedEventArgs` | Raised on the owner thread, after `DoInvokes` has run its pending work, once per `TryBeginInvoke` action that threw. With no handler attached, `DoInvokes` throws an `AggregateException` of those failures instead. If a handler throws, it still receives every later failure, and `DoInvokes` then throws an `AggregateException` holding each handler exception followed by the failure it was handling |
+| `BeginInvokeFailed` | `BeginInvokeFailedEventArgs` | Raised on the owner thread, after `DoInvokes` has run its pending work, once per `TryBeginInvoke` action that threw. With no handler attached, `DoInvokes` throws an `AggregateException` of those failures instead. If a handler throws, it still receives every later failure, every other handler still receives the failure it threw on, and `DoInvokes` then throws an `AggregateException` holding each handler exception followed by the failure it was handling |
 
 ## Advanced Usage
 

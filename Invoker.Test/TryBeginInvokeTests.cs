@@ -253,6 +253,55 @@ public class TryBeginInvokeTests
 	}
 
 	[TestMethod]
+	public void LaterSubscribersStillReceiveTheFailureAnEarlierSubscriberThrewOn()
+	{
+		Invoker invoker = new();
+		List<string> seenByLogger = [];
+		invoker.BeginInvokeFailed += (_, e) =>
+		{
+			if (e.Exception.Message == "first")
+			{
+				throw new InvalidOperationException("strict handler rejects " + e.Exception.Message);
+			}
+		};
+		invoker.BeginInvokeFailed += (_, e) => seenByLogger.Add(e.Exception.Message);
+
+		Thread producer = new(() =>
+		{
+			invoker.TryBeginInvoke(() => throw new ArgumentException("first"));
+			invoker.TryBeginInvoke(() => throw new ArgumentException("second"));
+		});
+		producer.Start();
+		producer.Join();
+
+		AggregateException aggregate = Assert.ThrowsExactly<AggregateException>(invoker.DoInvokes);
+
+		Assert.AreEqual("first, second", string.Join(", ", seenByLogger), "A subscriber after one that threw should still receive that failure.");
+		Assert.HasCount(2, aggregate.InnerExceptions);
+		Assert.AreEqual("strict handler rejects first", aggregate.InnerExceptions[0].Message);
+		Assert.AreEqual("first", aggregate.InnerExceptions[1].Message, "The failure the handler threw on should be surfaced with it.");
+	}
+
+	[TestMethod]
+	public void EverySubscriberThatThrowsIsSurfacedWithTheFailureItWasHandling()
+	{
+		Invoker invoker = new();
+		int lastRan = 0;
+		invoker.BeginInvokeFailed += (_, _) => throw new InvalidOperationException("a");
+		invoker.BeginInvokeFailed += (_, _) => throw new InvalidOperationException("b");
+		invoker.BeginInvokeFailed += (_, _) => lastRan++;
+
+		Thread producer = new(() => invoker.TryBeginInvoke(() => throw new ArgumentException("only")));
+		producer.Start();
+		producer.Join();
+
+		AggregateException aggregate = Assert.ThrowsExactly<AggregateException>(invoker.DoInvokes);
+
+		Assert.AreEqual(1, lastRan, "The last subscriber should receive the failure once.");
+		Assert.AreEqual("a, only, b, only", string.Join(", ", aggregate.InnerExceptions.Select(e => e.Message)));
+	}
+
+	[TestMethod]
 	public void InvokeAsyncThenTryBeginInvokeFromOneThreadRunInSubmissionOrder()
 	{
 		Invoker invoker = new();
