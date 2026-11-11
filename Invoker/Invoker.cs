@@ -3,7 +3,6 @@
 namespace ktsu.Invoker;
 
 using System.Collections.Concurrent;
-using System.Runtime.CompilerServices;
 
 /// <summary>
 /// Provides methods to invoke actions and functions asynchronously or synchronously on a specific thread.
@@ -39,9 +38,19 @@ public class Invoker(int beginInvokeCapacity)
 		TaskCreationOptions.RunContinuationsAsynchronously | TaskCreationOptions.DenyChildAttach;
 
 	/// <summary>
-	/// Gets the ID of the thread on which this instance was created.
+	/// Gets the thread on which this instance was created.
 	/// </summary>
-	private int ThreadId { get; } = Environment.CurrentManagedThreadId;
+	/// <remarks>
+	/// The owner is held and compared by reference rather than by <see cref="Environment.CurrentManagedThreadId"/>:
+	/// .NET reissues a managed thread ID once a dead thread's <see cref="Thread"/> object has been
+	/// collected, so after the owner exits an unrelated thread could otherwise pass the owner check.
+	/// </remarks>
+	private Thread OwnerThread { get; } = Thread.CurrentThread;
+
+	/// <summary>
+	/// Gets a value indicating whether the calling thread is the one that created this instance.
+	/// </summary>
+	private bool IsOwnerThread => ReferenceEquals(Thread.CurrentThread, OwnerThread);
 
 	/// <summary>
 	/// The last submission number handed out. Work from both queues carries one, so
@@ -94,7 +103,7 @@ public class Invoker(int beginInvokeCapacity)
 
 	private async Task InvokeCoreAsync(Action func)
 	{
-		if (ThreadId == Environment.CurrentManagedThreadId)
+		if (IsOwnerThread)
 		{
 			func();
 			return;
@@ -133,7 +142,7 @@ public class Invoker(int beginInvokeCapacity)
 
 	private async Task<TReturn> InvokeCoreAsync<TReturn>(Func<TReturn> func)
 	{
-		if (ThreadId == Environment.CurrentManagedThreadId)
+		if (IsOwnerThread)
 		{
 			return func();
 		}
@@ -165,17 +174,39 @@ public class Invoker(int beginInvokeCapacity)
 	/// <see cref="InvokeAsync{TReturn}(Func{TReturn})"/>, whose task completes at the lambda's first
 	/// incomplete await and never surfaces an exception thrown after it.
 	/// </remarks>
-	[OverloadResolutionPriority(1)]
 	public Task InvokeAsync(Func<Task> func)
 	{
 		Ensure.NotNull(func);
 		return InvokeAndAwaitCoreAsync(func);
 	}
 
-	private async Task InvokeAndAwaitCoreAsync(Func<Task> func)
+	// The task handed back completes through a RunContinuationsAsynchronously source. Returning an
+	// async method's own task instead would let the caller's code after its await run inline on
+	// whichever thread completes the delegate's task, which is often the owner thread (#102).
+	private Task<object?> InvokeAndAwaitCoreAsync(Func<Task> func)
 	{
-		Task inner = await InvokeCoreAsync<Task>(func).ConfigureAwait(false);
-		await inner.ConfigureAwait(false);
+		TaskCompletionSource<object?> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		_ = ForwardCompletionAsync(func, completion);
+		return completion.Task;
+	}
+
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Whatever the delegate throws is handed to the caller's task.")]
+	private async Task ForwardCompletionAsync(Func<Task> func, TaskCompletionSource<object?> completion)
+	{
+		try
+		{
+			Task inner = await InvokeCoreAsync<Task>(func).ConfigureAwait(false);
+			await inner.ConfigureAwait(false);
+			completion.TrySetResult(null);
+		}
+		catch (OperationCanceledException ex)
+		{
+			completion.TrySetCanceled(ex.CancellationToken);
+		}
+		catch (Exception ex)
+		{
+			completion.TrySetException(ex);
+		}
 	}
 
 	/// <summary>
@@ -186,17 +217,36 @@ public class Invoker(int beginInvokeCapacity)
 	/// <returns>A task that completes with the result of the task returned by <paramref name="func"/>.</returns>
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	/// <remarks>See <see cref="InvokeAsync(Func{Task})"/>.</remarks>
-	[OverloadResolutionPriority(1)]
 	public Task<TReturn> InvokeAsync<TReturn>(Func<Task<TReturn>> func)
 	{
 		Ensure.NotNull(func);
 		return InvokeAndAwaitCoreAsync(func);
 	}
 
-	private async Task<TReturn> InvokeAndAwaitCoreAsync<TReturn>(Func<Task<TReturn>> func)
+	// See InvokeAndAwaitCoreAsync(Func<Task>).
+	private Task<TReturn> InvokeAndAwaitCoreAsync<TReturn>(Func<Task<TReturn>> func)
 	{
-		Task<TReturn> inner = await InvokeCoreAsync<Task<TReturn>>(func).ConfigureAwait(false);
-		return await inner.ConfigureAwait(false);
+		TaskCompletionSource<TReturn> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		_ = ForwardCompletionAsync(func, completion);
+		return completion.Task;
+	}
+
+	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Whatever the delegate throws is handed to the caller's task.")]
+	private async Task ForwardCompletionAsync<TReturn>(Func<Task<TReturn>> func, TaskCompletionSource<TReturn> completion)
+	{
+		try
+		{
+			Task<TReturn> inner = await InvokeCoreAsync<Task<TReturn>>(func).ConfigureAwait(false);
+			completion.TrySetResult(await inner.ConfigureAwait(false));
+		}
+		catch (OperationCanceledException ex)
+		{
+			completion.TrySetCanceled(ex.CancellationToken);
+		}
+		catch (Exception ex)
+		{
+			completion.TrySetException(ex);
+		}
 	}
 
 	/// <summary>
@@ -211,7 +261,6 @@ public class Invoker(int beginInvokeCapacity)
 	/// <see cref="InvokeAsync(Func{Task})"/> there.
 	/// </remarks>
 	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
-	[OverloadResolutionPriority(1)]
 	public void Invoke(Func<Task> func) => InvokeAsync(func).GetAwaiter().GetResult();
 
 	/// <summary>
@@ -223,7 +272,6 @@ public class Invoker(int beginInvokeCapacity)
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	/// <remarks>See <see cref="Invoke(Func{Task})"/>.</remarks>
 	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
-	[OverloadResolutionPriority(1)]
 	public TReturn Invoke<TReturn>(Func<Task<TReturn>> func) => InvokeAsync(func).GetAwaiter().GetResult();
 
 	/// <summary>
@@ -234,11 +282,14 @@ public class Invoker(int beginInvokeCapacity)
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	/// <remarks>
 	/// The function starts on the owner thread, where its <see cref="ValueTask"/> is converted to a
-	/// <see cref="Task"/> so it is consumed exactly once. Without this overload the function would bind to
-	/// <see cref="InvokeAsync{TReturn}(Func{TReturn})"/>, whose task completes at the function's first
-	/// incomplete await and never surfaces an exception thrown after it.
+	/// <see cref="Task"/> so it is consumed exactly once. Passed to <c>InvokeAsync</c>, a <see cref="ValueTask"/>-returning
+	/// function would bind to <see cref="InvokeAsync{TReturn}(Func{TReturn})"/>, whose task completes at the function's
+	/// first incomplete await and never surfaces an exception thrown after it.
+	/// This is not an <c>InvokeAsync</c> overload because an async lambda converts equally well to
+	/// <see cref="Func{TResult}"/> of <see cref="Task"/> and of <see cref="ValueTask"/>, so the two overloads would be
+	/// ambiguous on C# 12 and earlier, the default for net8.0, netstandard and .NET Framework consumers.
 	/// </remarks>
-	public Task InvokeAsync(Func<ValueTask> func)
+	public Task InvokeValueTaskAsync(Func<ValueTask> func)
 	{
 		Ensure.NotNull(func);
 		return InvokeAndAwaitCoreAsync(() => func().AsTask());
@@ -251,8 +302,8 @@ public class Invoker(int beginInvokeCapacity)
 	/// <param name="func">The asynchronous function to invoke.</param>
 	/// <returns>A task that completes with the result of the <see cref="ValueTask{TResult}"/> returned by <paramref name="func"/>.</returns>
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
-	/// <remarks>See <see cref="InvokeAsync(Func{ValueTask})"/>.</remarks>
-	public Task<TReturn> InvokeAsync<TReturn>(Func<ValueTask<TReturn>> func)
+	/// <remarks>See <see cref="InvokeValueTaskAsync(Func{ValueTask})"/>.</remarks>
+	public Task<TReturn> InvokeValueTaskAsync<TReturn>(Func<ValueTask<TReturn>> func)
 	{
 		Ensure.NotNull(func);
 		return InvokeAndAwaitCoreAsync(() => func().AsTask());
@@ -265,7 +316,7 @@ public class Invoker(int beginInvokeCapacity)
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	/// <remarks>See <see cref="Invoke(Func{Task})"/>.</remarks>
 	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
-	public void Invoke(Func<ValueTask> func) => InvokeAsync(func).GetAwaiter().GetResult();
+	public void InvokeValueTask(Func<ValueTask> func) => InvokeValueTaskAsync(func).GetAwaiter().GetResult();
 
 	/// <summary>
 	/// Invokes the specified <see cref="ValueTask{TResult}"/>-returning function, blocks until the operation it returns completes, and returns its result.
@@ -276,7 +327,7 @@ public class Invoker(int beginInvokeCapacity)
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	/// <remarks>See <see cref="Invoke(Func{Task})"/>.</remarks>
 	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
-	public TReturn Invoke<TReturn>(Func<ValueTask<TReturn>> func) => InvokeAsync(func).GetAwaiter().GetResult();
+	public TReturn InvokeValueTask<TReturn>(Func<ValueTask<TReturn>> func) => InvokeValueTaskAsync(func).GetAwaiter().GetResult();
 
 	/// <summary>
 	/// Attempts to queue an action to run on the owner thread without blocking the caller
@@ -315,7 +366,7 @@ public class Invoker(int beginInvokeCapacity)
 	{
 		Ensure.NotNull(func);
 
-		if (ThreadId == Environment.CurrentManagedThreadId)
+		if (IsOwnerThread)
 		{
 			// The action did run, so this still returns true. Its exception is reported as a queued
 			// action's would be, rather than thrown into whichever code happened to call this here: the
@@ -352,7 +403,8 @@ public class Invoker(int beginInvokeCapacity)
 	/// thread is reported here too: with the pump's other failures when it ran during
 	/// <see cref="DoInvokes"/>, and from <see cref="TryBeginInvoke(Action)"/> itself otherwise. When no handler is attached, <see cref="DoInvokes"/> throws an
 	/// <see cref="AggregateException"/> instead, so the failure is never silently lost. Each failure is
-	/// raised on its own, so a handler that throws still receives every later failure; what it threw is
+	/// raised on its own, and to each subscriber on its own, so a handler that throws still receives every
+	/// later failure, and the subscribers after it still receive the failure it threw on; what it threw is
 	/// then surfaced by <see cref="DoInvokes"/> as an <see cref="AggregateException"/>.
 	/// </remarks>
 	public event EventHandler<BeginInvokeFailedEventArgs>? BeginInvokeFailed;
@@ -372,7 +424,7 @@ public class Invoker(int beginInvokeCapacity)
 	/// <exception cref="AggregateException">Thrown after the queued work has run when one or more <see cref="TryBeginInvoke(Action)"/> actions threw and no <see cref="BeginInvokeFailed"/> handler is attached, or when a handler threw. In the latter case every failure has still been raised to the handler, and each handler exception is followed in <see cref="AggregateException.InnerExceptions"/> by the failure it was handling.</exception>
 	public void DoInvokes()
 	{
-		if (ThreadId != Environment.CurrentManagedThreadId)
+		if (!IsOwnerThread)
 		{
 			throw new InvalidOperationException("This method must be called on the thread that created the Invoker instance.");
 		}
@@ -465,18 +517,25 @@ public class Invoker(int beginInvokeCapacity)
 		EventHandler<BeginInvokeFailedEventArgs> handler = BeginInvokeFailed
 			?? throw new AggregateException("One or more actions queued with TryBeginInvoke threw.", failures);
 
-		// A handler that throws must not cost the failures after it their report, so each one is raised
-		// on its own and anything a handler throws is surfaced, with the failure it was handling, at the end.
+		// A handler that throws must not cost the failures after it, or the subscribers after it, their
+		// report. Invoking the multicast delegate directly would stop at the first subscriber that threw,
+		// so each subscriber is called on its own for each failure, and anything one throws is surfaced,
+		// with the failure it was handling, at the end.
+		Delegate[] subscribers = handler.GetInvocationList();
 		List<Exception>? handlerFailures = null;
 		foreach (Exception failure in failures)
 		{
-			try
+			BeginInvokeFailedEventArgs args = new(failure);
+			foreach (EventHandler<BeginInvokeFailedEventArgs> subscriber in subscribers.Cast<EventHandler<BeginInvokeFailedEventArgs>>())
 			{
-				handler(this, new BeginInvokeFailedEventArgs(failure));
-			}
-			catch (Exception ex)
-			{
-				(handlerFailures ??= []).AddRange([ex, failure]);
+				try
+				{
+					subscriber(this, args);
+				}
+				catch (Exception ex)
+				{
+					(handlerFailures ??= []).AddRange([ex, failure]);
+				}
 			}
 		}
 

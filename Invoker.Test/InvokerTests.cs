@@ -229,6 +229,135 @@ public class InvokerTests
 		await AssertContinuationLeavesOwnerThread(invoker, () => invoker.InvokeAsync(() => 42)).ConfigureAwait(false);
 	}
 
+	[TestMethod]
+	public async Task InvokeAsyncTaskDelegateContinuationDoesNotRunOnTheOwnerThread()
+	{
+		Invoker invoker = new();
+		await AssertContinuationLeavesOwnerThreadThatCompletesTheDelegate(invoker, signal => invoker.InvokeAsync(async () => await signal.ConfigureAwait(false))).ConfigureAwait(false);
+	}
+
+	[TestMethod]
+	public async Task InvokeAsyncTaskOfTDelegateContinuationDoesNotRunOnTheOwnerThread()
+	{
+		Invoker invoker = new();
+		await AssertContinuationLeavesOwnerThreadThatCompletesTheDelegate(invoker, signal => invoker.InvokeAsync(async () =>
+		{
+			await signal.ConfigureAwait(false);
+			return 42;
+		})).ConfigureAwait(false);
+	}
+
+	[TestMethod]
+	public async Task InvokeAsyncValueTaskDelegateContinuationDoesNotRunOnTheOwnerThread()
+	{
+		Invoker invoker = new();
+		await AssertContinuationLeavesOwnerThreadThatCompletesTheDelegate(invoker, signal => invoker.InvokeAsync(() => new ValueTask(signal))).ConfigureAwait(false);
+	}
+
+	[TestMethod]
+	public async Task InvokeAsyncValueTaskOfTDelegateContinuationDoesNotRunOnTheOwnerThread()
+	{
+		Invoker invoker = new();
+		await AssertContinuationLeavesOwnerThreadThatCompletesTheDelegate(invoker, signal => invoker.InvokeAsync(() => new ValueTask<int>(ReturnAfter(signal)))).ConfigureAwait(false);
+
+		static async Task<int> ReturnAfter(Task signal)
+		{
+			await signal.ConfigureAwait(false);
+			return 42;
+		}
+	}
+
+	[TestMethod]
+	public async Task InvokeAsyncTaskDelegateThatIsCanceledCancelsTheCallersTaskWithItsToken()
+	{
+		Invoker invoker = new();
+		using CancellationTokenSource cts = new();
+		await cts.CancelAsync().ConfigureAwait(false);
+
+		Task task = invoker.InvokeAsync(async () =>
+		{
+			await Task.Yield();
+			cts.Token.ThrowIfCancellationRequested();
+		});
+
+		OperationCanceledException e = await Assert.ThrowsAsync<OperationCanceledException>(() => task).ConfigureAwait(false);
+		Assert.IsTrue(task.IsCanceled, "The caller's task should be canceled, not faulted.");
+		Assert.AreEqual(cts.Token, e.CancellationToken);
+	}
+
+	[TestMethod]
+	public async Task InvokeAsyncTaskOfTDelegateThatIsCanceledCancelsTheCallersTaskWithItsToken()
+	{
+		Invoker invoker = new();
+		using CancellationTokenSource cts = new();
+		await cts.CancelAsync().ConfigureAwait(false);
+
+		Task<int> task = invoker.InvokeAsync(async () =>
+		{
+			await Task.Yield();
+			cts.Token.ThrowIfCancellationRequested();
+			return 42;
+		});
+
+		OperationCanceledException e = await Assert.ThrowsAsync<OperationCanceledException>(() => task).ConfigureAwait(false);
+		Assert.IsTrue(task.IsCanceled, "The caller's task should be canceled, not faulted.");
+		Assert.AreEqual(cts.Token, e.CancellationToken);
+	}
+
+	[TestMethod]
+	public async Task InvokeAsyncTaskOfTDelegateThatThrowsAfterAnAwaitFaultsTheCallersTask()
+	{
+		Invoker invoker = new();
+
+		Task<int> task = invoker.InvokeAsync<int>(async () =>
+		{
+			await Task.Yield();
+			throw new InvalidOperationException("after await");
+		});
+
+		InvalidOperationException e = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() => task).ConfigureAwait(false);
+		Assert.AreEqual("after await", e.Message);
+		Assert.IsTrue(task.IsFaulted);
+	}
+
+	/// <summary>
+	/// Like <see cref="AssertContinuationLeavesOwnerThread"/>, for a delegate whose task the owner thread
+	/// itself completes after the pump, the way a render loop completes a "next frame" source (#102).
+	/// The source completes its continuations inline, so without a hop the caller's code after its
+	/// await would run inside <see cref="TaskCompletionSource.SetResult()"/> on the owner thread.
+	/// </summary>
+	private static async Task AssertContinuationLeavesOwnerThreadThatCompletesTheDelegate(Invoker invoker, Func<Task, Task> invoke)
+	{
+		TaskCompletionSource signal = new();
+		int ownerThreadId = 0;
+		using ManualResetEventSlim setResultReturned = new();
+		bool ranOnOwner = false;
+		bool sawSetResultReturn = false;
+
+		Task worker = Task.Run(async () =>
+		{
+			await invoke(signal.Task).ConfigureAwait(false);
+			ranOnOwner = Volatile.Read(ref ownerThreadId) == Environment.CurrentManagedThreadId;
+			sawSetResultReturn = setResultReturned.Wait(TimeSpan.FromSeconds(2));
+		});
+
+		Assert.IsTrue(SpinWait.SpinUntil(() => !invoker.TaskQueue.IsEmpty, TimeSpan.FromSeconds(5)), "The worker should queue its delegate.");
+
+		Volatile.Write(ref ownerThreadId, Environment.CurrentManagedThreadId);
+		invoker.DoInvokes();
+
+		// Give the caller's side time to start waiting on the delegate's task. Completing it before then
+		// would leave nothing to run inline, and the test would pass whether or not the hop is there.
+		Thread.Sleep(TimeSpan.FromMilliseconds(250));
+		signal.SetResult();
+		Volatile.Write(ref ownerThreadId, 0);
+		setResultReturned.Set();
+		await worker.ConfigureAwait(false);
+
+		Assert.IsFalse(ranOnOwner, "Code after the await should not run on the owner thread that completed the delegate's task.");
+		Assert.IsTrue(sawSetResultReturn, "Completing the delegate's task should not wait on the caller's code after the await.");
+	}
+
 	/// <summary>
 	/// Awaits <paramref name="invoke"/> from a thread-pool thread whose code after the await blocks
 	/// until <see cref="Invoker.DoInvokes"/> has returned. If that code ran inline inside the pump, it
@@ -433,10 +562,10 @@ public class InvokerTests
 
 		Exception? caught = RunOnWorkerWhilePumping(invoker, () =>
 		{
-			invoker.InvokeAsync(() => DelayThenSetAsync(finished)).GetAwaiter().GetResult();
+			invoker.InvokeValueTaskAsync(() => DelayThenSetAsync(finished)).GetAwaiter().GetResult();
 			completedAfter = elapsed.ElapsedMilliseconds;
 			finishedWhenReturned = finished.Value;
-			invoker.InvokeAsync(YieldThenThrowAsync).GetAwaiter().GetResult();
+			invoker.InvokeValueTaskAsync(YieldThenThrowAsync).GetAwaiter().GetResult();
 		});
 
 		Assert.IsTrue(finishedWhenReturned, "InvokeAsync should not complete before the ValueTask has finished.");
@@ -453,8 +582,8 @@ public class InvokerTests
 
 		Exception? caught = RunOnWorkerWhilePumping(invoker, () =>
 		{
-			result = invoker.InvokeAsync(YieldThenReturnAsync).GetAwaiter().GetResult();
-			_ = invoker.InvokeAsync(YieldThenThrowWithResultAsync).GetAwaiter().GetResult();
+			result = invoker.InvokeValueTaskAsync(YieldThenReturnAsync).GetAwaiter().GetResult();
+			_ = invoker.InvokeValueTaskAsync(YieldThenThrowWithResultAsync).GetAwaiter().GetResult();
 		});
 
 		Assert.AreEqual(42, result);
@@ -471,9 +600,9 @@ public class InvokerTests
 
 		Exception? caught = RunOnWorkerWhilePumping(invoker, () =>
 		{
-			invoker.Invoke(() => DelayThenSetAsync(finished));
-			result = invoker.Invoke(YieldThenReturnAsync);
-			invoker.Invoke(YieldThenThrowAsync);
+			invoker.InvokeValueTask(() => DelayThenSetAsync(finished));
+			result = invoker.InvokeValueTask(YieldThenReturnAsync);
+			invoker.InvokeValueTask(YieldThenThrowAsync);
 		});
 
 		Assert.IsTrue(finished.Value, "Invoke should block until the ValueTask has finished.");
@@ -487,7 +616,7 @@ public class InvokerTests
 	{
 		Invoker invoker = new();
 
-		Exception? caught = RunOnWorkerWhilePumping(invoker, () => _ = invoker.Invoke(YieldThenThrowWithResultAsync));
+		Exception? caught = RunOnWorkerWhilePumping(invoker, () => _ = invoker.InvokeValueTask(YieldThenThrowWithResultAsync));
 
 		Assert.IsNotNull(caught, "Invoke should rethrow an exception thrown after the ValueTask's first await.");
 		Assert.AreEqual("boom", caught.Message);
@@ -500,15 +629,15 @@ public class InvokerTests
 		Invoker invoker = new();
 		StrongBox<bool> finished = new();
 
-		invoker.InvokeAsync(() => DelayThenSetAsync(finished)).GetAwaiter().GetResult();
+		invoker.InvokeValueTaskAsync(() => DelayThenSetAsync(finished)).GetAwaiter().GetResult();
 		Assert.IsTrue(finished.Value, "On the owner thread, InvokeAsync should still wait for the ValueTask to finish.");
 
-		Assert.AreEqual(42, invoker.InvokeAsync(YieldThenReturnAsync).GetAwaiter().GetResult());
-		Assert.AreEqual(42, invoker.Invoke(YieldThenReturnAsync));
+		Assert.AreEqual(42, invoker.InvokeValueTaskAsync(YieldThenReturnAsync).GetAwaiter().GetResult());
+		Assert.AreEqual(42, invoker.InvokeValueTask(YieldThenReturnAsync));
 
-		InvalidOperationException e = Assert.ThrowsExactly<InvalidOperationException>(() => invoker.InvokeAsync(YieldThenThrowAsync).GetAwaiter().GetResult());
+		InvalidOperationException e = Assert.ThrowsExactly<InvalidOperationException>(() => invoker.InvokeValueTaskAsync(YieldThenThrowAsync).GetAwaiter().GetResult());
 		Assert.AreEqual("boom", e.Message);
-		e = Assert.ThrowsExactly<InvalidOperationException>(() => invoker.Invoke(YieldThenThrowAsync));
+		e = Assert.ThrowsExactly<InvalidOperationException>(() => invoker.InvokeValueTask(YieldThenThrowAsync));
 		Assert.AreEqual("boom", e.Message);
 	}
 
@@ -518,9 +647,9 @@ public class InvokerTests
 		Invoker invoker = new();
 		Func<ValueTask> valueTaskAction = null!;
 		Func<ValueTask<int>> valueTaskFunction = null!;
-		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeAsync(valueTaskAction));
-		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeAsync(valueTaskFunction));
-		Assert.ThrowsExactly<ArgumentNullException>(() => invoker.Invoke(valueTaskAction));
-		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.Invoke(valueTaskFunction));
+		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeValueTaskAsync(valueTaskAction));
+		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeValueTaskAsync(valueTaskFunction));
+		Assert.ThrowsExactly<ArgumentNullException>(() => invoker.InvokeValueTask(valueTaskAction));
+		Assert.ThrowsExactly<ArgumentNullException>(() => _ = invoker.InvokeValueTask(valueTaskFunction));
 	}
 }
