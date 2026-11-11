@@ -1,6 +1,7 @@
-## v1.5.1 (patch)
+## v1.5.2-pre.1 (prerelease)
 
-Changes since v1.5.0:
+Changes since v1.5.1:
 
-- Report an owner-thread TryBeginInvoke failure instead of throwing it to the caller [patch] (#99) (matt-edmondson)
+- Bump the microsoft group with 1 update (dependabot[bot])
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
