@@ -1,3 +1,9 @@
+## v1.5.1 (patch)
+
+Changes since v1.5.0:
+
+- Report an owner-thread TryBeginInvoke failure instead of throwing it to the caller [patch] (#99) (matt-edmondson)
+
 ## v1.5.0 (minor)
 
 Changes since v1.4.0:
