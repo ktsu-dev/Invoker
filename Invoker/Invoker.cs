@@ -27,6 +27,7 @@ using System.Collections.Concurrent;
 /// </remarks>
 /// <param name="beginInvokeCapacity">The capacity of the non-blocking <see cref="TryBeginInvoke(Action)"/> queue. Rounded up to the next power of two. At most 2^30 (1,073,741,824).</param>
 /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="beginInvokeCapacity"/> is less than one or greater than 2^30.</exception>
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable", Justification = "The shutdown source has no timer and its WaitHandle is never read, so it holds nothing to release. Making Invoker disposable would oblige every consumer to dispose it for no benefit.")]
 public class Invoker(int beginInvokeCapacity)
 {
 	/// <summary>
@@ -70,6 +71,18 @@ public class Invoker(int beginInvokeCapacity)
 	private List<Exception>? pumpFailures;
 
 	/// <summary>
+	/// Cancelled by <see cref="Shutdown"/>. Every queued <see cref="Invoke(Action)"/> and
+	/// <see cref="InvokeAsync(Action)"/> task is created with this token, or with one linked to it, so
+	/// shutting down cancels them all without the owner having to find each one.
+	/// </summary>
+	private readonly CancellationTokenSource shutdownSource = new();
+
+	/// <summary>
+	/// Gets a value indicating whether <see cref="Shutdown"/> has been called.
+	/// </summary>
+	public bool IsShutDown => shutdownSource.IsCancellationRequested;
+
+	/// <summary>
 	/// Gets the queue of tasks to be executed, each with its submission number.
 	/// </summary>
 	internal ConcurrentQueue<(long Sequence, Task Task)> TaskQueue { get; } = new();
@@ -98,13 +111,34 @@ public class Invoker(int beginInvokeCapacity)
 	public Task InvokeAsync(Action func)
 	{
 		Ensure.NotNull(func);
-		return InvokeCoreAsync(func);
+		return InvokeCoreAsync(func, CancellationToken.None);
 	}
 
-	private async Task InvokeCoreAsync(Action func)
+	/// <summary>
+	/// Invokes the specified action asynchronously, unless it is cancelled before the owner thread runs it.
+	/// </summary>
+	/// <param name="func">The action to invoke.</param>
+	/// <param name="cancellationToken">
+	/// A token that withdraws the action while it is still queued. Once the owner thread has started
+	/// the action, cancelling the token has no effect on it.
+	/// </param>
+	/// <returns>
+	/// A task that represents the asynchronous operation. It is cancelled, and the action never runs,
+	/// when <paramref name="cancellationToken"/> is cancelled or <see cref="Shutdown"/> is called before
+	/// <see cref="DoInvokes"/> reaches the action.
+	/// </returns>
+	/// <exception cref="ArgumentNullException">Thrown when the action is null.</exception>
+	public Task InvokeAsync(Action func, CancellationToken cancellationToken)
+	{
+		Ensure.NotNull(func);
+		return InvokeCoreAsync(func, cancellationToken);
+	}
+
+	private async Task InvokeCoreAsync(Action func, CancellationToken cancellationToken)
 	{
 		if (IsOwnerThread)
 		{
+			cancellationToken.ThrowIfCancellationRequested();
 			func();
 			return;
 		}
@@ -113,9 +147,17 @@ public class Invoker(int beginInvokeCapacity)
 		// without it, DoInvokes' RunSynchronously would run that code inline, inside the pump.
 		// DenyChildAttach stops an AttachedToParent child the delegate starts from holding up or faulting
 		// this task, which the owner-thread fast path, with no task to attach to, never does.
-		Task task = new(func, QueuedTaskOptions);
-		TaskQueue.Enqueue((NextSequence(), task));
-		await task.ConfigureAwait(false);
+		using CancellationTokenSource? linked = LinkToShutdown(cancellationToken, out CancellationToken queueToken);
+		Task task = new(func, queueToken, QueuedTaskOptions);
+		Enqueue(task);
+		try
+		{
+			await task.ConfigureAwait(false);
+		}
+		catch (OperationCanceledException) when (task.IsCanceled)
+		{
+			throw WithdrawnException(cancellationToken);
+		}
 	}
 
 	/// <summary>
@@ -128,6 +170,19 @@ public class Invoker(int beginInvokeCapacity)
 	public void Invoke(Action func) => InvokeAsync(func).GetAwaiter().GetResult();
 
 	/// <summary>
+	/// Invokes the specified action synchronously, unless it is cancelled before the owner thread runs it.
+	/// </summary>
+	/// <param name="func">The action to invoke.</param>
+	/// <param name="cancellationToken">
+	/// A token that withdraws the action and releases the caller while the action is still queued.
+	/// Once the owner thread has started the action, the caller waits for it to finish.
+	/// </param>
+	/// <exception cref="ArgumentNullException">Thrown when the action is null.</exception>
+	/// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is cancelled, or <see cref="Shutdown"/> is called, before the owner thread runs the action. The action then never runs.</exception>
+	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
+	public void Invoke(Action func, CancellationToken cancellationToken) => InvokeAsync(func, cancellationToken).GetAwaiter().GetResult();
+
+	/// <summary>
 	/// Invokes the specified function asynchronously and returns the result.
 	/// </summary>
 	/// <typeparam name="TReturn">The type of the return value.</typeparam>
@@ -137,20 +192,44 @@ public class Invoker(int beginInvokeCapacity)
 	public Task<TReturn> InvokeAsync<TReturn>(Func<TReturn> func)
 	{
 		Ensure.NotNull(func);
-		return InvokeCoreAsync(func);
+		return InvokeCoreAsync(func, CancellationToken.None);
 	}
 
-	private async Task<TReturn> InvokeCoreAsync<TReturn>(Func<TReturn> func)
+	/// <summary>
+	/// Invokes the specified function asynchronously and returns the result, unless it is cancelled
+	/// before the owner thread runs it.
+	/// </summary>
+	/// <typeparam name="TReturn">The type of the return value.</typeparam>
+	/// <param name="func">The function to invoke.</param>
+	/// <param name="cancellationToken">See <see cref="InvokeAsync(Action, CancellationToken)"/>.</param>
+	/// <returns>A task containing the result of the function, or cancelled as <see cref="InvokeAsync(Action, CancellationToken)"/> describes.</returns>
+	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
+	public Task<TReturn> InvokeAsync<TReturn>(Func<TReturn> func, CancellationToken cancellationToken)
+	{
+		Ensure.NotNull(func);
+		return InvokeCoreAsync(func, cancellationToken);
+	}
+
+	private async Task<TReturn> InvokeCoreAsync<TReturn>(Func<TReturn> func, CancellationToken cancellationToken)
 	{
 		if (IsOwnerThread)
 		{
+			cancellationToken.ThrowIfCancellationRequested();
 			return func();
 		}
 
 		// See InvokeAsync(Action): keep the caller's continuation out of DoInvokes.
-		Task<TReturn> task = new(func, QueuedTaskOptions);
-		TaskQueue.Enqueue((NextSequence(), task));
-		return await task.ConfigureAwait(false);
+		using CancellationTokenSource? linked = LinkToShutdown(cancellationToken, out CancellationToken queueToken);
+		Task<TReturn> task = new(func, queueToken, QueuedTaskOptions);
+		Enqueue(task);
+		try
+		{
+			return await task.ConfigureAwait(false);
+		}
+		catch (OperationCanceledException) when (task.IsCanceled)
+		{
+			throw WithdrawnException(cancellationToken);
+		}
 	}
 
 	/// <summary>
@@ -162,6 +241,19 @@ public class Invoker(int beginInvokeCapacity)
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
 	public TReturn Invoke<TReturn>(Func<TReturn> func) => InvokeAsync(func).GetAwaiter().GetResult();
+
+	/// <summary>
+	/// Invokes the specified function synchronously and returns the result, unless it is cancelled
+	/// before the owner thread runs it.
+	/// </summary>
+	/// <typeparam name="TReturn">The type of the return value.</typeparam>
+	/// <param name="func">The function to invoke.</param>
+	/// <param name="cancellationToken">See <see cref="Invoke(Action, CancellationToken)"/>.</param>
+	/// <returns>The result of the function.</returns>
+	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
+	/// <exception cref="OperationCanceledException">Thrown as <see cref="Invoke(Action, CancellationToken)"/> describes.</exception>
+	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
+	public TReturn Invoke<TReturn>(Func<TReturn> func, CancellationToken cancellationToken) => InvokeAsync(func, cancellationToken).GetAwaiter().GetResult();
 
 	/// <summary>
 	/// Invokes the specified asynchronous function and waits for the task it returns to complete.
@@ -177,25 +269,47 @@ public class Invoker(int beginInvokeCapacity)
 	public Task InvokeAsync(Func<Task> func)
 	{
 		Ensure.NotNull(func);
-		return InvokeAndAwaitCoreAsync(func);
+		return InvokeAndAwaitCoreAsync(func, CancellationToken.None);
+	}
+
+	/// <summary>
+	/// Invokes the specified asynchronous function and waits for the task it returns to complete,
+	/// unless it is cancelled before the owner thread starts it.
+	/// </summary>
+	/// <param name="func">The asynchronous function to invoke.</param>
+	/// <param name="cancellationToken">
+	/// A token that withdraws the function while it is still queued. Once the owner thread has started
+	/// the function, cancelling the token has no effect on it; pass the token into the function to stop
+	/// its own work.
+	/// </param>
+	/// <returns>A task that completes when the task returned by <paramref name="func"/> completes, or is cancelled as <see cref="InvokeAsync(Action, CancellationToken)"/> describes.</returns>
+	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
+	/// <remarks>
+	/// Without this overload an async lambda passed with a token would bind to
+	/// <see cref="InvokeAsync{TReturn}(Func{TReturn}, CancellationToken)"/>; see <see cref="InvokeAsync(Func{Task})"/>.
+	/// </remarks>
+	public Task InvokeAsync(Func<Task> func, CancellationToken cancellationToken)
+	{
+		Ensure.NotNull(func);
+		return InvokeAndAwaitCoreAsync(func, cancellationToken);
 	}
 
 	// The task handed back completes through a RunContinuationsAsynchronously source. Returning an
 	// async method's own task instead would let the caller's code after its await run inline on
 	// whichever thread completes the delegate's task, which is often the owner thread (#102).
-	private Task<object?> InvokeAndAwaitCoreAsync(Func<Task> func)
+	private Task<object?> InvokeAndAwaitCoreAsync(Func<Task> func, CancellationToken cancellationToken)
 	{
 		TaskCompletionSource<object?> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
-		_ = ForwardCompletionAsync(func, completion);
+		_ = ForwardCompletionAsync(func, completion, cancellationToken);
 		return completion.Task;
 	}
 
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Whatever the delegate throws is handed to the caller's task.")]
-	private async Task ForwardCompletionAsync(Func<Task> func, TaskCompletionSource<object?> completion)
+	private async Task ForwardCompletionAsync(Func<Task> func, TaskCompletionSource<object?> completion, CancellationToken cancellationToken)
 	{
 		try
 		{
-			Task inner = await InvokeCoreAsync<Task>(func).ConfigureAwait(false);
+			Task inner = await InvokeCoreAsync<Task>(func, cancellationToken).ConfigureAwait(false);
 			await inner.ConfigureAwait(false);
 			completion.TrySetResult(null);
 		}
@@ -220,23 +334,38 @@ public class Invoker(int beginInvokeCapacity)
 	public Task<TReturn> InvokeAsync<TReturn>(Func<Task<TReturn>> func)
 	{
 		Ensure.NotNull(func);
-		return InvokeAndAwaitCoreAsync(func);
+		return InvokeAndAwaitCoreAsync(func, CancellationToken.None);
+	}
+
+	/// <summary>
+	/// Invokes the specified asynchronous function, waits for the task it returns, and returns its result,
+	/// unless it is cancelled before the owner thread starts it.
+	/// </summary>
+	/// <typeparam name="TReturn">The type of the result.</typeparam>
+	/// <param name="func">The asynchronous function to invoke.</param>
+	/// <param name="cancellationToken">See <see cref="InvokeAsync(Func{Task}, CancellationToken)"/>.</param>
+	/// <returns>A task that completes with the result of the task returned by <paramref name="func"/>, or is cancelled as <see cref="InvokeAsync(Action, CancellationToken)"/> describes.</returns>
+	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
+	public Task<TReturn> InvokeAsync<TReturn>(Func<Task<TReturn>> func, CancellationToken cancellationToken)
+	{
+		Ensure.NotNull(func);
+		return InvokeAndAwaitCoreAsync(func, cancellationToken);
 	}
 
 	// See InvokeAndAwaitCoreAsync(Func<Task>).
-	private Task<TReturn> InvokeAndAwaitCoreAsync<TReturn>(Func<Task<TReturn>> func)
+	private Task<TReturn> InvokeAndAwaitCoreAsync<TReturn>(Func<Task<TReturn>> func, CancellationToken cancellationToken)
 	{
 		TaskCompletionSource<TReturn> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
-		_ = ForwardCompletionAsync(func, completion);
+		_ = ForwardCompletionAsync(func, completion, cancellationToken);
 		return completion.Task;
 	}
 
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Whatever the delegate throws is handed to the caller's task.")]
-	private async Task ForwardCompletionAsync<TReturn>(Func<Task<TReturn>> func, TaskCompletionSource<TReturn> completion)
+	private async Task ForwardCompletionAsync<TReturn>(Func<Task<TReturn>> func, TaskCompletionSource<TReturn> completion, CancellationToken cancellationToken)
 	{
 		try
 		{
-			Task<TReturn> inner = await InvokeCoreAsync<Task<TReturn>>(func).ConfigureAwait(false);
+			Task<TReturn> inner = await InvokeCoreAsync<Task<TReturn>>(func, cancellationToken).ConfigureAwait(false);
 			completion.TrySetResult(await inner.ConfigureAwait(false));
 		}
 		catch (OperationCanceledException ex)
@@ -292,7 +421,7 @@ public class Invoker(int beginInvokeCapacity)
 	public Task InvokeValueTaskAsync(Func<ValueTask> func)
 	{
 		Ensure.NotNull(func);
-		return InvokeAndAwaitCoreAsync(() => func().AsTask());
+		return InvokeAndAwaitCoreAsync(() => func().AsTask(), CancellationToken.None);
 	}
 
 	/// <summary>
@@ -306,7 +435,7 @@ public class Invoker(int beginInvokeCapacity)
 	public Task<TReturn> InvokeValueTaskAsync<TReturn>(Func<ValueTask<TReturn>> func)
 	{
 		Ensure.NotNull(func);
-		return InvokeAndAwaitCoreAsync(() => func().AsTask());
+		return InvokeAndAwaitCoreAsync(() => func().AsTask(), CancellationToken.None);
 	}
 
 	/// <summary>
@@ -359,6 +488,10 @@ public class Invoker(int beginInvokeCapacity)
 	/// reported at once: <see cref="BeginInvokeFailed"/> is raised, or, with no handler attached, an
 	/// <see cref="AggregateException"/> is thrown, as <see cref="DoInvokes"/> would.
 	/// </para>
+	/// <para>
+	/// After <see cref="Shutdown"/>, a call from another thread queues nothing and returns
+	/// <see langword="false"/>.
+	/// </para>
 	/// </remarks>
 	/// <exception cref="AggregateException">Thrown on the owner thread, outside <see cref="DoInvokes"/>, when the action threw and no <see cref="BeginInvokeFailed"/> handler is attached, or when the handler threw.</exception>
 	[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "A fire-and-forget action can throw anything, and every failure is reported through BeginInvokeFailed or an AggregateException, as queued actions' failures are.")]
@@ -390,7 +523,7 @@ public class Invoker(int beginInvokeCapacity)
 			return true;
 		}
 
-		return BeginInvokeQueue.TryEnqueue((NextSequence(), func));
+		return !IsShutDown && BeginInvokeQueue.TryEnqueue((NextSequence(), func));
 	}
 
 	/// <summary>
@@ -427,6 +560,13 @@ public class Invoker(int beginInvokeCapacity)
 		if (!IsOwnerThread)
 		{
 			throw new InvalidOperationException("This method must be called on the thread that created the Invoker instance.");
+		}
+
+		if (IsShutDown)
+		{
+			// Anything that slipped into a queue while Shutdown ran is dropped, not run late.
+			DiscardQueuedWork();
+			return;
 		}
 
 		// Run only the work that was queued when the pump started. Everything dequeued frees a slot, so
@@ -494,11 +634,7 @@ public class Invoker(int beginInvokeCapacity)
 			}
 			else
 			{
-				// The default scheduler always runs the task inline here. With no argument it would be
-				// TaskScheduler.Current, and when DoInvokes is itself called from a task on a scheduler
-				// that refuses to inline, the task was queued back to that scheduler: it ran off the
-				// owner thread, or never ran at all if the owner was that scheduler's only thread.
-				nextTask.Task.RunSynchronously(TaskScheduler.Default);
+				RunQueuedTask(nextTask.Task);
 				haveTask = TryTakeTask(ref taskBudget, out nextTask);
 			}
 		}
@@ -542,6 +678,114 @@ public class Invoker(int beginInvokeCapacity)
 		if (handlerFailures is not null)
 		{
 			throw new AggregateException("A BeginInvokeFailed handler threw. Each handler exception is followed by the TryBeginInvoke failure it was handling.", handlerFailures);
+		}
+	}
+
+	/// <summary>
+	/// Releases every caller still waiting on queued work and stops the invoker accepting more.
+	/// </summary>
+	/// <remarks>
+	/// Call this from the owner thread when its loop ends, before signalling and joining the threads that
+	/// call <see cref="Invoke(Action)"/>. Every queued <see cref="Invoke(Action)"/> and
+	/// <see cref="InvokeAsync(Action)"/> call completes with an <see cref="OperationCanceledException"/>
+	/// and its delegate never runs. Queued <see cref="TryBeginInvoke(Action)"/> actions are dropped.
+	/// Afterwards, <c>Invoke</c> and <c>InvokeAsync</c> from another thread fail at once with an
+	/// <see cref="OperationCanceledException"/>, <see cref="TryBeginInvoke(Action)"/> from another thread
+	/// returns <see langword="false"/>, and <see cref="DoInvokes"/> runs nothing. Calls made on the owner
+	/// thread still run inline, as they always do. Calling this more than once has no further effect.
+	/// </remarks>
+	/// <exception cref="InvalidOperationException">Thrown when this method is called on a different thread than the one that created the Invoker instance.</exception>
+	public void Shutdown()
+	{
+		if (!IsOwnerThread)
+		{
+			throw new InvalidOperationException("This method must be called on the thread that created the Invoker instance.");
+		}
+
+		// Every queued task carries this token or one linked to it, so this cancels them all and releases
+		// their callers. Their continuations run asynchronously, so none of the callers' code runs here.
+		shutdownSource.Cancel();
+		DiscardQueuedWork();
+	}
+
+	/// <summary>
+	/// Empties both queues without running anything. Every task in them has already been cancelled.
+	/// </summary>
+	private void DiscardQueuedWork()
+	{
+		while (TaskQueue.TryDequeue(out _))
+		{
+		}
+
+		while (BeginInvokeQueue.TryDequeue(out _))
+		{
+		}
+	}
+
+	/// <summary>
+	/// Picks the token a queued task is created with: the shutdown token, or, when the caller passed a
+	/// token that can be cancelled, a token cancelled by either.
+	/// </summary>
+	/// <param name="cancellationToken">The caller's token.</param>
+	/// <param name="queueToken">The token to create the queued task with.</param>
+	/// <returns>The linked source to dispose once the task has completed, or <see langword="null"/> when none was needed.</returns>
+	private CancellationTokenSource? LinkToShutdown(CancellationToken cancellationToken, out CancellationToken queueToken)
+	{
+		if (!cancellationToken.CanBeCanceled)
+		{
+			queueToken = shutdownSource.Token;
+			return null;
+		}
+
+		CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, shutdownSource.Token);
+		queueToken = linked.Token;
+		return linked;
+	}
+
+	/// <summary>
+	/// Queues a task for <see cref="DoInvokes"/>, unless it was cancelled before it could be queued.
+	/// </summary>
+	private void Enqueue(Task task)
+	{
+		// A task created with a token that is already cancelled starts out cancelled, so after Shutdown, or
+		// with a token cancelled up front, the caller is released at once and nothing waits in the queue.
+		if (!task.IsCompleted)
+		{
+			TaskQueue.Enqueue((NextSequence(), task));
+		}
+	}
+
+	/// <summary>
+	/// Builds the exception a caller sees when its queued work was withdrawn before it ran.
+	/// </summary>
+	/// <param name="cancellationToken">The caller's token.</param>
+	private OperationCanceledException WithdrawnException(CancellationToken cancellationToken) =>
+		cancellationToken.IsCancellationRequested
+			? new OperationCanceledException(cancellationToken)
+			: new OperationCanceledException("The invoker was shut down before it ran this work.", shutdownSource.Token);
+
+	/// <summary>
+	/// Runs a queued task inline on the owner thread, unless it was cancelled while it waited.
+	/// </summary>
+	private static void RunQueuedTask(Task task)
+	{
+		// The default scheduler always runs the task inline here. With no argument it would be
+		// TaskScheduler.Current, and when DoInvokes is itself called from a task on a scheduler
+		// that refuses to inline, the task was queued back to that scheduler: it ran off the
+		// owner thread, or never ran at all if the owner was that scheduler's only thread.
+		// A token can cancel the task between the check and the start, and the task then refuses to
+		// start; it has a caller to report that to already, so the pump moves on.
+		if (task.IsCompleted)
+		{
+			return;
+		}
+
+		try
+		{
+			task.RunSynchronously(TaskScheduler.Default);
+		}
+		catch (InvalidOperationException) when (task.IsCanceled)
+		{
 		}
 	}
 

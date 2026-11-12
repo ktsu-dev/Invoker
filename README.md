@@ -206,7 +206,15 @@ The main class that manages execution of delegates on the intended thread.
 | `InvokeValueTaskAsync<T>` | `Func<ValueTask<T>> func` | `Task<T>` | Queues a `ValueTask<T>`-returning function to start on the owner thread and returns a Task that completes with its result, once it has completed |
 | `InvokeValueTaskAsync` | `Func<ValueTask> func` | `Task` | Queues a `ValueTask`-returning function to start on the owner thread and returns a Task that completes when it does, carrying any exception it throws |
 | `InvokeAsync` | `Action action` | `Task` | Queues an action to be executed on the owner thread and returns a Task that completes when the action is done |
+| `Invoke`, `Invoke<T>`, `InvokeAsync`, `InvokeAsync<T>` | any of the delegates above except `ValueTask`, then `CancellationToken cancellationToken` | as above | As above, but cancelling the token while the delegate is still queued withdraws it: the caller gets an `OperationCanceledException` carrying that token and the delegate never runs. Once the owner thread has started the delegate, the token has no effect on it |
+| `Shutdown` | | `void` | Call from the owner thread when its loop ends. Every queued `Invoke`/`InvokeAsync` call completes with an `OperationCanceledException` and its delegate never runs, and queued `TryBeginInvoke` actions are dropped. Afterwards, calls from other threads fail at once (`TryBeginInvoke` returns `false`) and `DoInvokes` runs nothing. Calls on the owner thread still run inline |
 | `DoInvokes` | | `void` | Processes the invocations pending when it is called (must be called from the owner thread). Work queued while it runs waits for the next call; see `BeginInvokeFailed` for how fire-and-forget failures are reported |
+
+#### Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `IsShutDown` | `bool` | Whether `Shutdown` has been called |
 
 #### Events
 
