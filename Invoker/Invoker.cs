@@ -715,10 +715,12 @@ public class Invoker(int beginInvokeCapacity)
 	{
 		while (TaskQueue.TryDequeue(out _))
 		{
+			// Intentionally empty: dequeuing is the whole job, and each task is already cancelled.
 		}
 
 		while (BeginInvokeQueue.TryDequeue(out _))
 		{
+			// Intentionally empty: a dropped action is never run.
 		}
 	}
 
@@ -786,6 +788,7 @@ public class Invoker(int beginInvokeCapacity)
 		}
 		catch (InvalidOperationException) when (task.IsCanceled)
 		{
+			// Intentionally swallowed: the token won the race, and the task's caller already sees it cancelled.
 		}
 	}
 
