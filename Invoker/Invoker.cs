@@ -27,7 +27,7 @@ using System.Collections.Concurrent;
 /// </remarks>
 /// <param name="beginInvokeCapacity">The capacity of the non-blocking <see cref="TryBeginInvoke(Action)"/> queue. Rounded up to the next power of two. At most 2^30 (1,073,741,824).</param>
 /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="beginInvokeCapacity"/> is less than one or greater than 2^30.</exception>
-[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable", Justification = "The shutdown source has no timer and its WaitHandle is never read, so it holds nothing to release. Making Invoker disposable would oblige every consumer to dispose it for no benefit.")]
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001:Types that own disposable fields should be disposable", Justification = "Shutdown disposes the shutdown source. Making Invoker disposable as well would oblige every consumer to dispose it, where only those that shut it down hold anything to release.")]
 public class Invoker(int beginInvokeCapacity)
 {
 	/// <summary>
@@ -75,6 +75,12 @@ public class Invoker(int beginInvokeCapacity)
 	/// <see cref="InvokeAsync(Action)"/> task is created with this token, or with one linked to it, so
 	/// shutting down cancels them all without the owner having to find each one.
 	/// </summary>
+	/// <remarks>
+	/// <see cref="Shutdown"/> cancels and then disposes it. A disposed source still answers
+	/// <see cref="CancellationTokenSource.IsCancellationRequested"/>, but its
+	/// <see cref="CancellationTokenSource.Token"/> property throws, so the token is read only while
+	/// <see cref="IsShutDown"/> is false.
+	/// </remarks>
 	private readonly CancellationTokenSource shutdownSource = new();
 
 	/// <summary>
@@ -167,7 +173,7 @@ public class Invoker(int beginInvokeCapacity)
 	/// <exception cref="ArgumentNullException">Thrown when the action is null.</exception>
 	// GetAwaiter().GetResult() rethrows the delegate's own exception with its stack trace intact,
 	// where unwrapping the AggregateException from Wait() and rethrowing it would reset the trace.
-	public void Invoke(Action func) => InvokeAsync(func).GetAwaiter().GetResult();
+	public void Invoke(Action func) => InvokeAsync(func, CancellationToken.None).GetAwaiter().GetResult();
 
 	/// <summary>
 	/// Invokes the specified action synchronously, unless it is cancelled before the owner thread runs it.
@@ -240,7 +246,7 @@ public class Invoker(int beginInvokeCapacity)
 	/// <returns>The result of the function.</returns>
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
-	public TReturn Invoke<TReturn>(Func<TReturn> func) => InvokeAsync(func).GetAwaiter().GetResult();
+	public TReturn Invoke<TReturn>(Func<TReturn> func) => InvokeAsync(func, CancellationToken.None).GetAwaiter().GetResult();
 
 	/// <summary>
 	/// Invokes the specified function synchronously and returns the result, unless it is cancelled
@@ -390,7 +396,7 @@ public class Invoker(int beginInvokeCapacity)
 	/// <see cref="InvokeAsync(Func{Task})"/> there.
 	/// </remarks>
 	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
-	public void Invoke(Func<Task> func) => InvokeAsync(func).GetAwaiter().GetResult();
+	public void Invoke(Func<Task> func) => InvokeAsync(func, CancellationToken.None).GetAwaiter().GetResult();
 
 	/// <summary>
 	/// Invokes the specified asynchronous function, blocks until the task it returns completes, and returns its result.
@@ -401,7 +407,7 @@ public class Invoker(int beginInvokeCapacity)
 	/// <exception cref="ArgumentNullException">Thrown when the function is null.</exception>
 	/// <remarks>See <see cref="Invoke(Func{Task})"/>.</remarks>
 	// See Invoke(Action): GetResult() keeps the stack trace of the code that actually failed.
-	public TReturn Invoke<TReturn>(Func<Task<TReturn>> func) => InvokeAsync(func).GetAwaiter().GetResult();
+	public TReturn Invoke<TReturn>(Func<Task<TReturn>> func) => InvokeAsync(func, CancellationToken.None).GetAwaiter().GetResult();
 
 	/// <summary>
 	/// Invokes the specified <see cref="ValueTask"/>-returning function and waits for the operation it returns to complete.
@@ -693,6 +699,8 @@ public class Invoker(int beginInvokeCapacity)
 	/// <see cref="OperationCanceledException"/>, <see cref="TryBeginInvoke(Action)"/> from another thread
 	/// returns <see langword="false"/>, and <see cref="DoInvokes"/> runs nothing. Calls made on the owner
 	/// thread still run inline, as they always do. Calling this more than once has no further effect.
+	/// A call from another thread that races with this one can instead fail with an
+	/// <see cref="ObjectDisposedException"/>; either way its delegate never runs.
 	/// </remarks>
 	/// <exception cref="InvalidOperationException">Thrown when this method is called on a different thread than the one that created the Invoker instance.</exception>
 	public void Shutdown()
@@ -704,7 +712,15 @@ public class Invoker(int beginInvokeCapacity)
 
 		// Every queued task carries this token or one linked to it, so this cancels them all and releases
 		// their callers. Their continuations run asynchronously, so none of the callers' code runs here.
-		shutdownSource.Cancel();
+		if (!IsShutDown)
+		{
+			shutdownSource.Cancel();
+
+			// Nothing is registered on the source any more that the cancellation did not already run,
+			// and every later read of its token is guarded by IsShutDown.
+			shutdownSource.Dispose();
+		}
+
 		DiscardQueuedWork();
 	}
 
@@ -733,13 +749,24 @@ public class Invoker(int beginInvokeCapacity)
 	/// <returns>The linked source to dispose once the task has completed, or <see langword="null"/> when none was needed.</returns>
 	private CancellationTokenSource? LinkToShutdown(CancellationToken cancellationToken, out CancellationToken queueToken)
 	{
-		if (!cancellationToken.CanBeCanceled)
+		if (IsShutDown)
 		{
-			queueToken = shutdownSource.Token;
+			// Already cancelled, so the task is created cancelled and never queued.
+			queueToken = new CancellationToken(canceled: true);
 			return null;
 		}
 
-		CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, shutdownSource.Token);
+		// Shutdown can still win the race between the check above and this read. The read then throws
+		// ObjectDisposedException, which reaches the caller as the shutdown's report instead of an
+		// OperationCanceledException.
+		CancellationToken shutdownToken = shutdownSource.Token;
+		if (!cancellationToken.CanBeCanceled)
+		{
+			queueToken = shutdownToken;
+			return null;
+		}
+
+		CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, shutdownToken);
 		queueToken = linked.Token;
 		return linked;
 	}
@@ -761,10 +788,10 @@ public class Invoker(int beginInvokeCapacity)
 	/// Builds the exception a caller sees when its queued work was withdrawn before it ran.
 	/// </summary>
 	/// <param name="cancellationToken">The caller's token.</param>
-	private OperationCanceledException WithdrawnException(CancellationToken cancellationToken) =>
+	private static OperationCanceledException WithdrawnException(CancellationToken cancellationToken) =>
 		cancellationToken.IsCancellationRequested
 			? new OperationCanceledException(cancellationToken)
-			: new OperationCanceledException("The invoker was shut down before it ran this work.", shutdownSource.Token);
+			: new OperationCanceledException("The invoker was shut down before it ran this work.", new CancellationToken(canceled: true));
 
 	/// <summary>
 	/// Runs a queued task inline on the owner thread, unless it was cancelled while it waited.

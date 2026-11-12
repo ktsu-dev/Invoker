@@ -253,6 +253,28 @@ public sealed class CancellationAndShutdownTests
 	}
 
 	[TestMethod]
+	public void ShutdownTwiceIsHarmless()
+	{
+		Invoker invoker = new();
+		invoker.Shutdown();
+		invoker.Shutdown();
+
+		Assert.IsTrue(invoker.IsShutDown);
+		Assert.IsNotNull(OnAnotherThread(() =>
+		{
+			try
+			{
+				invoker.Invoke(() => { });
+				return null;
+			}
+			catch (OperationCanceledException ex)
+			{
+				return ex;
+			}
+		}));
+	}
+
+	[TestMethod]
 	public void ShutdownFromAnotherThreadThrows()
 	{
 		Invoker invoker = new();
