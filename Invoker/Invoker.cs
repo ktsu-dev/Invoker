@@ -335,8 +335,8 @@ public class Invoker(int beginInvokeCapacity)
 	/// </summary>
 	/// <param name="func">The action to queue.</param>
 	/// <returns>
-	/// <see langword="true"/> if the action was executed immediately (called on the owner thread) or
-	/// successfully queued; <see langword="false"/> if the bounded queue was full and the action was
+	/// <see langword="true"/> if the action was executed immediately (called on the owner thread outside
+	/// <see cref="DoInvokes"/>) or successfully queued; <see langword="false"/> if the bounded queue was full and the action was
 	/// dropped.
 	/// </returns>
 	/// <exception cref="ArgumentNullException">Thrown when <paramref name="func"/> is null.</exception>
@@ -349,15 +349,17 @@ public class Invoker(int beginInvokeCapacity)
 	/// and <see cref="InvokeAsync(Action)"/>: a thread that calls <c>InvokeAsync(A)</c> and then
 	/// <c>TryBeginInvoke(B)</c> sees A run before B. An action queued while a pump is already running
 	/// waits for the pump after it.
-	/// When called from the owner thread the action runs synchronously and immediately.
+	/// When called from the owner thread outside <see cref="DoInvokes"/> the action runs synchronously and
+	/// immediately. When called from the owner thread while <see cref="DoInvokes"/> is running, for example
+	/// from inside an <see cref="InvokeAsync(Action)"/> delegate or another queued action, it is queued
+	/// like any other and runs on the next call to <see cref="DoInvokes"/>, so an action that re-posts
+	/// itself runs once per pump instead of recursing.
 	/// <para>
 	/// A throwing action is reported the same way whichever thread called this method, and its exception
-	/// never comes back out of <see cref="TryBeginInvoke(Action)"/> to the code that called it. Called on
-	/// the owner thread while <see cref="DoInvokes"/> is running, for example from inside an
-	/// <see cref="InvokeAsync(Action)"/> delegate or another queued action, the failure is reported with
-	/// that pump's other failures once its work has run. Called on the owner thread outside a pump, it is
-	/// reported at once: <see cref="BeginInvokeFailed"/> is raised, or, with no handler attached, an
-	/// <see cref="AggregateException"/> is thrown, as <see cref="DoInvokes"/> would.
+	/// never comes back out of <see cref="TryBeginInvoke(Action)"/> to the code that called it. A queued
+	/// action's failure is reported by the pump that runs it. An action run inline on the owner thread,
+	/// outside a pump, is reported at once: <see cref="BeginInvokeFailed"/> is raised, or, with no handler
+	/// attached, an <see cref="AggregateException"/> is thrown, as <see cref="DoInvokes"/> would.
 	/// </para>
 	/// </remarks>
 	/// <exception cref="AggregateException">Thrown on the owner thread, outside <see cref="DoInvokes"/>, when the action threw and no <see cref="BeginInvokeFailed"/> handler is attached, or when the handler threw.</exception>
@@ -366,7 +368,10 @@ public class Invoker(int beginInvokeCapacity)
 	{
 		Ensure.NotNull(func);
 
-		if (IsOwnerThread)
+		// On the owner thread while DoInvokes is running, queue the action for the next pump rather than
+		// run it inline. Every action the pump runs is on the owner thread, so running inline here would
+		// let an action that re-posts itself recurse inside one DoInvokes call until the stack overflows.
+		if (IsOwnerThread && !isPumping)
 		{
 			// The action did run, so this still returns true. Its exception is reported as a queued
 			// action's would be, rather than thrown into whichever code happened to call this here: the
@@ -377,14 +382,7 @@ public class Invoker(int beginInvokeCapacity)
 			}
 			catch (Exception ex)
 			{
-				if (isPumping)
-				{
-					(pumpFailures ??= []).Add(ex);
-				}
-				else
-				{
-					ReportBeginInvokeFailures([ex]);
-				}
+				ReportBeginInvokeFailures([ex]);
 			}
 
 			return true;
@@ -400,8 +398,8 @@ public class Invoker(int beginInvokeCapacity)
 	/// <remarks>
 	/// Raised only after the pump has run all the work it took on, so a failing action never delays
 	/// other queued work. An action that <see cref="TryBeginInvoke(Action)"/> ran inline on the owner
-	/// thread is reported here too: with the pump's other failures when it ran during
-	/// <see cref="DoInvokes"/>, and from <see cref="TryBeginInvoke(Action)"/> itself otherwise. When no handler is attached, <see cref="DoInvokes"/> throws an
+	/// thread, outside <see cref="DoInvokes"/>, is reported here too, from
+	/// <see cref="TryBeginInvoke(Action)"/> itself. When no handler is attached, <see cref="DoInvokes"/> throws an
 	/// <see cref="AggregateException"/> instead, so the failure is never silently lost. Each failure is
 	/// raised on its own, and to each subscriber on its own, so a handler that throws still receives every
 	/// later failure, and the subscribers after it still receive the failure it threw on; what it threw is
@@ -438,9 +436,9 @@ public class Invoker(int beginInvokeCapacity)
 		// A fire-and-forget action has no caller to hand its exception back to, so RunPendingWork catches
 		// it rather than let it abort the pump: an escaping exception would skip the rest of both
 		// queues and leave every thread blocked in Invoke waiting for a pump that may never come.
-		// Failures from owner-thread TryBeginInvoke calls made by the work this pump runs go into the
-		// same list. A pump started from inside one of those actions keeps its own list, and the outer
-		// pump's list is restored when it returns.
+		// isPumping also makes owner-thread TryBeginInvoke calls made by the work this pump runs queue
+		// their action for the next pump instead of running it inline. A pump started from inside one
+		// of those actions keeps its own failure list, and the outer pump's list is restored when it returns.
 		bool outerIsPumping = isPumping;
 		List<Exception>? outerFailures = pumpFailures;
 		isPumping = true;

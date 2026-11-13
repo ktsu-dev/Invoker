@@ -489,6 +489,10 @@ public class TryBeginInvokeTests
 
 		Assert.IsTrue(caller.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken), "The InvokeAsync caller should be released.");
 		Assert.IsFalse(caller.IsFaulted, "The InvokeAsync caller's own work succeeded, so its task must not carry another action's failure.");
+		Assert.IsEmpty(failures, "An action posted from the owner thread during a pump waits for the next pump.");
+
+		invoker.DoInvokes();
+
 		Assert.HasCount(1, failures);
 		Assert.AreEqual("nested boom", failures[0].Message);
 	}
@@ -503,11 +507,13 @@ public class TryBeginInvokeTests
 			TestContext.CancellationToken);
 		SpinWait.SpinUntil(() => !invoker.TaskQueue.IsEmpty, TimeSpan.FromSeconds(5));
 
+		invoker.DoInvokes();
+		Assert.IsTrue(caller.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken), "The InvokeAsync caller should complete successfully.");
+
 		AggregateException aggregate = Assert.ThrowsExactly<AggregateException>(invoker.DoInvokes);
 
 		Assert.HasCount(1, aggregate.InnerExceptions);
 		Assert.AreEqual("nested boom", aggregate.InnerExceptions[0].Message);
-		Assert.IsTrue(caller.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken), "The InvokeAsync caller should complete successfully.");
 	}
 
 	[TestMethod]
@@ -529,6 +535,10 @@ public class TryBeginInvokeTests
 		invoker.DoInvokes();
 
 		Assert.IsTrue(outerFinished, "The inner failure must not abort the outer action.");
+		Assert.IsEmpty(failures, "The inner action was posted during the pump, so it waits for the next one.");
+
+		invoker.DoInvokes();
+
 		Assert.AreEqual("inner boom", string.Join(", ", failures), "Only the inner action failed, and it should be reported once.");
 	}
 
@@ -546,9 +556,11 @@ public class TryBeginInvokeTests
 		producer.Start();
 		producer.Join();
 
+		invoker.DoInvokes();
+		Assert.IsTrue(outerFinished, "The inner failure must not abort the outer action.");
+
 		AggregateException aggregate = Assert.ThrowsExactly<AggregateException>(invoker.DoInvokes);
 
-		Assert.IsTrue(outerFinished, "The inner failure must not abort the outer action.");
 		Assert.HasCount(1, aggregate.InnerExceptions);
 		Assert.AreEqual("inner boom", aggregate.InnerExceptions[0].Message);
 	}
@@ -561,12 +573,15 @@ public class TryBeginInvokeTests
 		invoker.BeginInvokeFailed += (_, e) => failures.Add(e.Exception.Message);
 		int reportedWhenNestedPumpReturned = -1;
 
-		Thread producer = new(() => invoker.TryBeginInvoke(() =>
+		Thread producer = new(() =>
 		{
 			invoker.TryBeginInvoke(() => throw new InvalidOperationException("outer pump"));
-			invoker.DoInvokes();
-			reportedWhenNestedPumpReturned = failures.Count;
-		}));
+			invoker.TryBeginInvoke(() =>
+			{
+				invoker.DoInvokes();
+				reportedWhenNestedPumpReturned = failures.Count;
+			});
+		});
 		producer.Start();
 		producer.Join();
 
@@ -574,5 +589,62 @@ public class TryBeginInvokeTests
 
 		Assert.AreEqual(0, reportedWhenNestedPumpReturned, "A failure collected by the outer pump should wait for the outer pump.");
 		Assert.AreEqual("outer pump", string.Join(", ", failures));
+	}
+
+	[TestMethod]
+	public void SelfRepostingActionRunsOncePerPump()
+	{
+		Invoker invoker = new();
+		int runs = 0;
+		int depth = 0;
+		int maxDepth = 0;
+
+		void Tick()
+		{
+			depth++;
+			maxDepth = Math.Max(maxDepth, depth);
+			runs++;
+
+			// Capped so that, if re-posting recursed, the test fails rather than overflowing the stack.
+			if (runs < 100)
+			{
+				invoker.TryBeginInvoke(Tick);
+			}
+
+			depth--;
+		}
+
+		Thread producer = new(() => invoker.TryBeginInvoke(Tick));
+		producer.Start();
+		producer.Join();
+
+		invoker.DoInvokes();
+
+		Assert.AreEqual(1, runs, "One pump should run the self-re-posting action once.");
+		Assert.AreEqual(1, maxDepth, "The re-post must not run nested inside the action that posted it.");
+
+		invoker.DoInvokes();
+
+		Assert.AreEqual(2, runs, "The next pump should run the re-posted action exactly once more.");
+		Assert.AreEqual(1, maxDepth);
+	}
+
+	[TestMethod]
+	public void OwnerThreadPostDuringPumpRunsOnTheNextPump()
+	{
+		Invoker invoker = new();
+		bool ran = false;
+
+		Task caller = Task.Run(() => invoker.InvokeAsync(() => invoker.TryBeginInvoke(() => ran = true)), TestContext.CancellationToken);
+		SpinWait.SpinUntil(() => !invoker.TaskQueue.IsEmpty, TimeSpan.FromSeconds(5));
+
+		invoker.DoInvokes();
+
+		Assert.IsTrue(caller.Wait(TimeSpan.FromSeconds(5), TestContext.CancellationToken));
+		Assert.IsFalse(ran, "An action posted from the owner thread during a pump waits for the next pump.");
+
+		invoker.DoInvokes();
+
+		Assert.IsTrue(ran);
 	}
 }
