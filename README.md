@@ -199,20 +199,28 @@ The main class that manages execution of delegates on the intended thread.
 | `Invoke` | `Func<Task> func` | `void` | Starts the async function on the owner thread and blocks until its task completes |
 | `InvokeValueTask<T>` | `Func<ValueTask<T>> func` | `T` | Starts the `ValueTask`-returning function on the owner thread and blocks until it completes, returning its result |
 | `InvokeValueTask` | `Func<ValueTask> func` | `void` | Starts the `ValueTask`-returning function on the owner thread and blocks until it completes |
-| `TryBeginInvoke` | `Action action` | `bool` | Queues an action to be executed on the owner thread without waiting for completion. Returns `false`, and drops the action, if the bounded queue is full. From the owner thread the action runs immediately |
+| `TryBeginInvoke` | `Action action` | `bool` | Queues an action to be executed on the owner thread without waiting for completion. Returns `false`, and drops the action, if the bounded queue is full. From the owner thread the action runs immediately, unless `DoInvokes` is running, in which case it is queued for the next `DoInvokes`, so an action that re-posts itself runs once per pump |
 | `InvokeAsync<T>` | `Func<T> func` | `Task<T>` | Queues a function to be executed on the owner thread and returns a Task that completes with the result |
 | `InvokeAsync<T>` | `Func<Task<T>> func` | `Task<T>` | Queues an async function to start on the owner thread and returns a Task that completes with the result of the function's task, once that task has completed |
 | `InvokeAsync` | `Func<Task> func` | `Task` | Queues an async function to start on the owner thread and returns a Task that completes when the function's task does, carrying any exception it throws |
 | `InvokeValueTaskAsync<T>` | `Func<ValueTask<T>> func` | `Task<T>` | Queues a `ValueTask<T>`-returning function to start on the owner thread and returns a Task that completes with its result, once it has completed |
 | `InvokeValueTaskAsync` | `Func<ValueTask> func` | `Task` | Queues a `ValueTask`-returning function to start on the owner thread and returns a Task that completes when it does, carrying any exception it throws |
 | `InvokeAsync` | `Action action` | `Task` | Queues an action to be executed on the owner thread and returns a Task that completes when the action is done |
+| `Invoke`, `Invoke<T>`, `InvokeAsync`, `InvokeAsync<T>` | any of the delegates above except `ValueTask`, then `CancellationToken cancellationToken` | as above | As above, but cancelling the token while the delegate is still queued withdraws it: the caller gets an `OperationCanceledException` carrying that token and the delegate never runs. Once the owner thread has started the delegate, the token has no effect on it |
+| `Shutdown` | | `void` | Call from the owner thread when its loop ends. Every queued `Invoke`/`InvokeAsync` call completes with an `OperationCanceledException` and its delegate never runs, and queued `TryBeginInvoke` actions are dropped. Afterwards, calls from other threads fail at once (`TryBeginInvoke` returns `false`) and `DoInvokes` runs nothing. Calls on the owner thread still run inline |
 | `DoInvokes` | | `void` | Processes the invocations pending when it is called (must be called from the owner thread). Work queued while it runs waits for the next call; see `BeginInvokeFailed` for how fire-and-forget failures are reported |
+
+#### Properties
+
+| Name | Type | Description |
+|------|------|-------------|
+| `IsShutDown` | `bool` | Whether `Shutdown` has been called |
 
 #### Events
 
 | Name | Args | Description |
 |------|------|-------------|
-| `BeginInvokeFailed` | `BeginInvokeFailedEventArgs` | Raised on the owner thread, after `DoInvokes` has run its pending work, once per `TryBeginInvoke` action that threw. With no handler attached, `DoInvokes` throws an `AggregateException` of those failures instead. If a handler throws, it still receives every later failure, every other handler still receives the failure it threw on, and `DoInvokes` then throws an `AggregateException` holding each handler exception followed by the failure it was handling. An action `TryBeginInvoke` ran inline on the owner thread is reported the same way: with the pump's other failures when it ran inside `DoInvokes` (for example from an `InvokeAsync` delegate), or at once from `TryBeginInvoke` otherwise, which then throws the `AggregateException` itself when no handler is attached |
+| `BeginInvokeFailed` | `BeginInvokeFailedEventArgs` | Raised on the owner thread, after `DoInvokes` has run its pending work, once per `TryBeginInvoke` action that threw. With no handler attached, `DoInvokes` throws an `AggregateException` of those failures instead. If a handler throws, it still receives every later failure, every other handler still receives the failure it threw on, and `DoInvokes` then throws an `AggregateException` holding each handler exception followed by the failure it was handling. An action `TryBeginInvoke` ran inline on the owner thread, outside `DoInvokes`, is reported the same way at once from `TryBeginInvoke`, which then throws the `AggregateException` itself when no handler is attached. One posted from the owner thread while `DoInvokes` is running is queued, and reported by the pump that runs it |
 
 ## Advanced Usage
 
