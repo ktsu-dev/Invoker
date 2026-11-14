@@ -316,6 +316,11 @@ public class Invoker(int beginInvokeCapacity)
 		try
 		{
 			Task inner = await InvokeCoreAsync<Task>(func, cancellationToken).ConfigureAwait(false);
+			if (await TrySetFaultsAsync(inner, completion).ConfigureAwait(false))
+			{
+				return;
+			}
+
 			await inner.ConfigureAwait(false);
 			completion.TrySetResult(null);
 		}
@@ -372,6 +377,11 @@ public class Invoker(int beginInvokeCapacity)
 		try
 		{
 			Task<TReturn> inner = await InvokeCoreAsync<Task<TReturn>>(func, cancellationToken).ConfigureAwait(false);
+			if (await TrySetFaultsAsync(inner, completion).ConfigureAwait(false))
+			{
+				return;
+			}
+
 			completion.TrySetResult(await inner.ConfigureAwait(false));
 		}
 		catch (OperationCanceledException ex)
@@ -382,6 +392,35 @@ public class Invoker(int beginInvokeCapacity)
 		{
 			completion.TrySetException(ex);
 		}
+	}
+
+	/// <summary>
+	/// Waits for <paramref name="inner"/> and, when it faulted with more than one exception, hands all of
+	/// them to <paramref name="completion"/>.
+	/// </summary>
+	/// <returns>True when <paramref name="completion"/> was given the faults; false to await <paramref name="inner"/> as usual.</returns>
+	/// <remarks>
+	/// <c>await</c> rethrows only the first of a task's exceptions, so a delegate returning
+	/// <c>Task.WhenAll(a, b)</c> would otherwise lose every failure but one. A task with a single exception
+	/// still goes through <c>await</c>, which keeps its existing mapping: an
+	/// <see cref="OperationCanceledException"/> cancels the caller's task rather than faulting it.
+	/// </remarks>
+	private static async Task<bool> TrySetFaultsAsync<TResult>(Task? inner, TaskCompletionSource<TResult> completion)
+	{
+		if (inner is null)
+		{
+			return false;
+		}
+
+		// WhenAny completes when inner does and never throws, on every target framework.
+		await Task.WhenAny(inner).ConfigureAwait(false);
+		if (inner.Exception is { InnerExceptions.Count: > 1 } aggregate)
+		{
+			completion.TrySetException(aggregate.InnerExceptions);
+			return true;
+		}
+
+		return false;
 	}
 
 	/// <summary>
