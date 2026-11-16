@@ -1,3 +1,10 @@
+## v1.6.1-pre.1 (prerelease)
+
+Changes since v1.6.0:
+
+- Bump the microsoft group with 1 update (dependabot[bot])
+- Bump the ktsu group with 9 updates (dependabot[bot])
+
 ## v1.6.0 (minor)
 
 Changes since v1.5.0:

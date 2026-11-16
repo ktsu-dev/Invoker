@@ -1,9 +1,7 @@
-## v1.6.0 (minor)
+## v1.6.1-pre.1 (prerelease)
 
-Changes since v1.5.0:
+Changes since v1.6.0:
 
-- Keep every inner exception when an async delegate's task faults with several [patch] (#110) (matt-edmondson)
-- Release blocked Invoke callers with a cancellation token or Shutdown [minor] (#112) (matt-edmondson)
-- Queue an owner-thread TryBeginInvoke for the next pump while DoInvokes runs [patch] (#114) (matt-edmondson)
-- Report an owner-thread TryBeginInvoke failure instead of throwing it to the caller [patch] (#99) (matt-edmondson)
+- Bump the microsoft group with 1 update (dependabot[bot])
+- Bump the ktsu group with 9 updates (dependabot[bot])
 
