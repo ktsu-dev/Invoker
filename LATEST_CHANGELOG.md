@@ -1,7 +1,6 @@
-## v1.6.1-pre.1 (prerelease)
+## v1.6.1-pre.2 (prerelease)
 
-Changes since v1.6.0:
+Changes since v1.6.1-pre.1:
 
-- Bump the microsoft group with 1 update (dependabot[bot])
-- Bump the ktsu group with 9 updates (dependabot[bot])
+- Bump Polyfill from 11.4.5 to 12.0.0 (dependabot[bot])
 
